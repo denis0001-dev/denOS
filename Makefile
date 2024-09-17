@@ -1,9 +1,9 @@
 TARGET = i686-elf
 PREFIX = ~/opt/cross
 
-CC = $(PREFIX)/bin/$(TARGET)-gcc
+CC = $(PREFIX)/bin/$(TARGET)-g++
 AS = $(PREFIX)/bin/$(TARGET)-as
-EXTRAPARAMS_CC = -std=gnu99 -ffreestanding -O2 -Wall -Wextra
+EXTRAPARAMS_CC = -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti
 INDIR = $(shell realpath .)/src/main
 OUTDIR = $(shell realpath .)/build
 
@@ -33,11 +33,11 @@ boot:
 
 kernel:
 	echo "Compiling kernel..."
-	$(CC) -c $(INDIR)/kernel.c -o $(OUTDIR)/kernel.o $(EXTRAPARAMS_CC)
+	$(CC) -c $(INDIR)/kernel.cpp -o $(OUTDIR)/kernel.o $(EXTRAPARAMS_CC)
 
 link:
 	echo "Linking..."
-	$(CC) -T $(INDIR)/linker.ld -o $(OUTDIR)/denOS.bin -ffreestanding -O2 -nostdlib $(OUTDIR)/boot.o $(OUTDIR)/kernel.o -lgcc
+	$(CC) -T $(INDIR)/linker.ld -o $(OUTDIR)/denOS.bin -ffreestanding -O2 -nostdlib $(OUTDIR)/*.o -lgcc
 
 iso:
 	mkdir -p $(OUTDIR)/iso/boot/grub
