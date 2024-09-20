@@ -16,6 +16,8 @@
 #error "This tutorial needs to be compiled with a ix86-elf compiler"
 #endif
 
+typedef const char* string;
+
 namespace IO {
 	uint8_t inb(uint16_t port) {
 		uint8_t ret;
@@ -29,7 +31,7 @@ namespace IO {
 }
 
 namespace strings {
-	size_t length(const char* str) {
+	size_t length(const string str) {
 		size_t len = 0;
 		while (str[len]) len++;
 		return len;
@@ -240,17 +242,17 @@ namespace strings {
 		}
 	}; */
 
-	char *concat(const char* first, const char* second) {
-		const int len1 = length(first);
-		const int len2 = length(second);
-		const int total = len1 + len2 + 1;
+	string concat(const string first, const string second) {
+		const size_t len1 = length(first);
+		const size_t len2 = length(second);
+		const size_t total = len1 + len2 + 1;
 		char new_data[total];
 
-		for (int i = 0; i < len1; i++) {
+		for (size_t i = 0; i < len1; i++) {
 			new_data[i] = first[i];
 		}
 
-		for (int i = len1; i < len2; i++) {
+		for (size_t i = len1; i < len2; i++) {
 			new_data[i + len1] = second[i];
 		}
 
@@ -258,27 +260,27 @@ namespace strings {
 		return new_data;
 	}
 
-	char *concat(const char* first, const char second) {
+	string concat(const string first, const char second) {
 		char data[2];
 		data[0] = second;
 		data[1] = '\0';
 		return concat(first, data);
 	}
 
-	bool equals(const char* first, const char* second) {
-		const int len1 = length(first);
+	bool equals(const string first, const string second) {
+		const size_t len1 = length(first);
 		if (len1 != length(second)) return false;
-		for (int i = 0; i < len1; i++) {
+		for (size_t i = 0; i < len1; i++) {
 			if (first[i] != second[i]) return false;
 		}
 		return true;
 	}
 
-	char *substring(const char* str, const int start, const int end) {
-		const int len = end - start;
+	string substring(const string str, const size_t start, const size_t end) {
+		const size_t len = end - start;
 		char new_data[len + 1];
 
-		for (int i = start; i < end; i++) {
+		for (size_t i = start; i < end; i++) {
 			new_data[i - start] = str[i];
 		}
 
@@ -286,48 +288,70 @@ namespace strings {
 		return new_data;
 	}
 
-	char *substring(const char* str, const int start) {
+	string substring(const string str, const size_t start) {
 		return substring(str, start, length(str));
 	}
 
-	char* int_to_string(int num) {
-		static char str[11]; // Assuming the maximum number to be converted is 2147483647
-		int i = 0;
-		bool negative = false;
+	string toString(size_t num) {
+		char buffer[10];
+		size_t i = 0;
 
-		// Handle negative numbers
-		if (num < 0) {
-			negative = true;
-			num = -num;
-		}
-
-		// Convert the integer to a string
 		while (num > 0) {
-			const int digit = num % 10;
-			str[i++] = digit + '0';  // Convert the digit to ASCII
+			switch (num % 10) {
+				case 1:
+					buffer[i++] = '1';
+                    break;
+                case 2:
+                	buffer[i++] = '2';
+                    break;
+                case 3:
+                	buffer[i++] = '3';
+                    break;
+                case 4:
+                	buffer[i++] = '4';
+                    break;
+                case 5:
+                	buffer[i++] = '5';
+                    break;
+                case 6:
+                	buffer[i++] = '6';
+                    break;
+                case 7:
+                	buffer[i++] = '7';
+                    break;
+                case 8:
+                	buffer[i++] = '8';
+                    break;
+                case 9:
+                	buffer[i++] = '9';
+                    break;
+                case 0:
+                	buffer[i++] = '0';
+                    break;
+				default:
+					buffer[i++] = '\1';
+			}
 			num /= 10;
 		}
+		buffer[i] = '\0';
+		return buffer;
+	}
 
-		// Add a null terminator to the end of the string
-		str[i] = '\0';
+	string toLowerCase(const string str) {
+		const size_t len = length(str);
+        char new_data[len + 1];
 
-		// If the number was negative, add a negative sign to the string
-		if (negative) {
-			str[0] = '-';
-		}
+        for (size_t i = 0; i < len; i++) {
+	        const char c = str[i];
+            if (c >= 'A' && c <= 'Z') {
+                new_data[i] = c + ('a' - 'A');
+            } else {
+                new_data[i] = c;
+            }
+        }
 
-		// Reverse the string, since we added digits from left to right
-		int j = 0;
-		int k = i - 1;
-		while (j < k) {
-			const char temp = str[j];
-			str[j] = str[k];
-			str[k] = temp;
-			j++;
-			k--;
-		}
-
-		return &str[i - negative];
+        new_data[len] = '\0';
+        return new_data;
 	}
 }
 
@@ -402,7 +426,7 @@ namespace terminal {
 	void initialize() {
 		video::terminal_row = 0;
 		video::terminal_column = 0;
-		video::terminal_color = video::vga_entry_color(video::DEFAULT_FG, video::DEFAULT_BG);
+		video::terminal_color = vga_entry_color(video::DEFAULT_FG, video::DEFAULT_BG);
 		video::terminal_buffer = reinterpret_cast<uint16_t *>(0xB8000);
 		clear();
 	}
@@ -412,7 +436,7 @@ namespace terminal {
 		video::terminal_buffer[index] = video::vga_entry(c, color);
 	}
 
-	void scroll(const int lines) {
+	void scroll(const size_t lines) {
 		const size_t new_row = (video::terminal_row + lines) % video::VGA_HEIGHT;
 
 		for (size_t y = new_row; y < video::VGA_HEIGHT; y++) {
@@ -441,30 +465,38 @@ namespace terminal {
 				}
 			}
 		} else {
+			putentryat(' ', video::terminal_color, video::terminal_column, video::terminal_row);
 			if (++video::terminal_row == video::VGA_HEIGHT) {
 				scroll(1);
 				--video::terminal_row;
 			}
 			video::terminal_column = 0;
 		}
+		putentryat(' ', vga_entry_color(video::BLACK, video::WHITE), video::terminal_column, video::terminal_row);
 	}
 
-	void print(const char* data) {
+	void print(const string data) {
 		for (size_t i = 0; i < strings::length(data); i++) printChar(data[i]);
 	}
 
-	void printColor(const char *data, const video::vga_color bg, const video::vga_color fg) {
+	void printColor(const string data, const video::vga_color bg, const video::vga_color fg) {
 		video::terminal_color = vga_entry_color(fg, bg);
 		print(data);
 		video::terminal_color = vga_entry_color(video::DEFAULT_FG, video::DEFAULT_BG);
 	}
+	void printColor(const char data, const video::vga_color bg, const video::vga_color fg) {
+		char str[2];
+		str[0] = data;
+		str[1] = '\0';
+		printColor(str, bg, fg);
+	}
 
-	void println(const char* data) {
+	void println(const string data) {
 		print(data);
 		print("\n");
 	}
 
-	void printlnColor(const char *data, const video::vga_color bg, const video::vga_color fg) {
+	void printlnColor(const string data, const video::vga_color bg, const video::vga_color fg) {
 		printColor(data, bg, fg);
 		print("\n");
 	}
@@ -485,39 +517,37 @@ namespace terminal {
 
 	current_input input = default_input;
 
-	void enableCursor(const uint8_t cursor_start, const uint8_t cursor_end) {
-		IO::outb(0x3D4, 0x0A);
-		IO::outb(0x3D5, IO::inb(0x3D5) & 0xC0 | cursor_start);
+	void move_cursor(const size_t x, const size_t y) {
+	    // The cursor position is stored in the first two bytes of the video memory.
+	    // The first byte is the high nibble and the second byte is the low nibble.
+	    // The high nibble is the page number and the low nibble is the row number.
+	    // The page number is the y coordinate divided by 80 and the row number is the x coordinate.
 
-		IO::outb(0x3D4, 0x0B);
-		IO::outb(0x3D5, IO::inb(0x3D5) & 0xE0 | cursor_end);
+	    // Calculate the high nibble (page number)
+	    const uint8_t high_nibble = y / 80;
+
+	    // Calculate the low nibble (row number)
+	    const uint8_t low_nibble = x;
+
+	    // Write the high nibble to the first byte of the video memory
+	    IO::outb(0x3D4, high_nibble);
+
+	    // Write the low nibble to the second byte of the video memory
+	    IO::outb(0x3D5, low_nibble);
 	}
+}
 
-	void disableCursor() {
-		IO::outb(0x3D4, 0x0A);
-		IO::outb(0x3D5, 0x20);
-	}
-
-	void updateCursor(const size_t x, const size_t y) {
-		const uint16_t pos = y * video::VGA_WIDTH + x;
-
-		IO::outb(0x3D4, 0x0F);
-		IO::outb(0x3D5, static_cast<uint8_t>(pos & 0xFF));
-		IO::outb(0x3D4, 0x0E);
-		IO::outb(0x3D5, static_cast<uint8_t>(pos >> 8 & 0xFF));
-	}
-
-	pos getCursorPosition() {
-		uint16_t pos = 0;
-		IO::outb(0x3D4, 0x0F);
-		pos |= IO::inb(0x3D5);
-		IO::outb(0x3D4, 0x0E);
-		pos |= static_cast<uint16_t>(IO::inb(0x3D5)) << 8;
-
-		const size_t x = pos % video::VGA_WIDTH;
-		const size_t y = pos / video::VGA_WIDTH;
-		return {x, y};
-	}
+namespace console {
+	struct help_entry {
+		string command;
+		string description;
+	};
+	constexpr help_entry HELP_TABLE[] = {
+		{"shutdown", "Shut down the system"},
+		{"help", "Display this help message"},
+		{"version", "Display version information"},
+		{"changelog", "Display changes recently made"}
+	};
 }
 
 namespace keyboard {
@@ -603,6 +633,28 @@ namespace keyboard {
 		KEY_TAB = 0x0F,
 		KEY_UP = 0x48,
 	};
+	enum key_chars {
+		// Arrow keys
+		UP = '\101',
+		LEFT = '\102',
+		DOWN = '\103',
+		RIGHT = '\104',
+		// Text management
+		ENTER = '\n',
+		BACKSPACE = '\b',
+		DELETE = '\0',
+		INSERT = '\50',
+		SPACE = ' ',
+		TAB = '\t',
+
+		// Navigation
+		END = '\200',
+		ESC = '\300',
+		HOME = '\40',
+		PAGE_DOWN = '\62',
+		PAGE_UP = '\61',
+		PRINT_SCREEN = '\70'
+	};
 
 	char get_input_keycode() {
 		char ch = 0;
@@ -661,7 +713,7 @@ namespace keyboard {
 			case KEY_BACKSLASH: return '\\';
 			case KEY_COMMA: return ',';
 			case KEY_DOT: return '.';
-			case KEY_FORESLHASH: return '*';
+			case KEY_FORESLHASH: return '/';
 			// F keys
 			case KEY_F1: return '1';
 			case KEY_F2: return '2';
@@ -702,7 +754,89 @@ namespace keyboard {
 }
 
 namespace system {
-	auto VERSION = "0.7.1";
+	struct changelog_entry {
+		string version;
+		string codename;
+		string date;
+		string changes;
+	};
+
+	constexpr changelog_entry CHANGELOG[] {
+		{
+			"0.1",
+			nullptr,
+			"11.09.2024",
+			"The first version. There's no features, only the \"Hello, kernel World!\" message."
+		},
+		{
+			"0.4",
+			nullptr,
+			"11.09.2024",
+			"Print functions, simple colorful project description"
+		},
+		{
+			"0.6",
+			"Keyboard Monster",
+			"15.09.2024",
+			"Keyboard input!!"
+		},
+		{
+			"0.6.1",
+			"Keyboard Monster++",
+			"15.09.2024",
+			"Switched to C++"
+		},
+		{
+			"0.7",
+			"Colorful Commander",
+			"16.09.2024",
+			"Finally, I've made a working shell. Now, you can enter commands.\nThe only command that exists here is shutdown. It halts the kernel."
+		},
+		{
+			"0.7.1",
+			"Colorful Commander",
+			"17.09.2024",
+			"Added some more commands and help."
+		},
+		{
+			"0.7.2",
+			"Colorful Commander",
+			"17.09.2024",
+			"First line animation"
+		},
+		{
+			"0.7.3",
+			"Colorful Commander",
+			"19.09.2024",
+			"Started working on the mouse driver, fixed some bugs, restructured the code.\nFun fact: the first 1000 lines of code have been written!"
+		},
+		{
+			"0.7.4",
+			"Colorful Commander",
+			"19.09.2024",
+			"Automated the system codename & version to the latest release, added release date to 'version' command."
+		},
+		{
+			"0.7.5",
+			"Colorful Commander",
+			"19.09.2024",
+			"Fixed some bugs"
+		},
+	};
+
+	/* changelog_entry LATEST_RELEASE = {
+		CHANGELOG[LATEST_RELEASE_INDEX].version,
+		CHANGELOG[LATEST_RELEASE_INDEX].codename,
+		CHANGELOG[LATEST_RELEASE_INDEX].date,
+        CHANGELOG[LATEST_RELEASE_INDEX].changes
+	}; */
+
+	string VERSION = CHANGELOG[9].version;
+	string CODENAME = CHANGELOG[9].codename;
+	string RELEASE_DATE = CHANGELOG[9].date;
+
+	int ACPI_CONTROL_REGISTER = 0x400;
+	uint8_t ACPI_SHUTDOWN_SIGNAL = 0xFE;
 
 	void sleep(uint32_t timer_count) {
 		for (uint32_t i = 0; i < timer_count; i++) {
@@ -711,81 +845,216 @@ namespace system {
 	}
 }
 
+// TODO mouse driver
+namespace mouse {
+	// Define the interrupt number for the PS/2 mouse
+	constexpr int IRQ = 12;
+
+	// Define the data port and command port for the PS/2 mouse
+	constexpr int DATA_PORT = 0x60;
+	constexpr int COMMAND_PORT = 0x64;
+
+	// Define a structure to hold the state of the PS/2 mouse
+	struct mouse_state {
+	    uint8_t data;
+	    uint8_t command;
+	};
+
+	// Define a function to read data from the PS/2 mouse
+	uint8_t read_data() {
+	    // Read the data from the PS/2 mouse
+	    const uint8_t data = IO::inb(DATA_PORT);
+	    return data;
+	}
+
+	// Define a function to write data to the PS/2 mouse
+	void write_data(const uint8_t data) {
+	    // Write the data to the PS/2 mouse
+	    IO::outb(DATA_PORT, data);
+	}
+
+	// Define a function to initialize the PS/2 mouse
+	void init() {
+	    // Write the command to enable data transfer to the PS/2 mouse
+	    write_data(0x20);
+	}
+
+	// Define a function to process the data from the PS/2 mouse
+	void process_data(const uint8_t data) {
+		static mouse_state state;
+
+		switch (data) {
+			case 0xFE: // Mouse button pressed NOLINT(*-branch-clone)
+				break;
+			case 0xFF: // Mouse button released
+				break;
+			case 0xF0: // Data packet
+				state.data = data;
+				// Process the movement data from the mouse
+				if (state.data & 0x80) {
+					const size_t x = (state.data & 0x0F) * 8;
+					const size_t y = (state.data & 0x70) >> 4;
+					// Prsize_t the movement information
+					// terminal::prsize_tln(strings::size_t_to_string(x) + ", " + strings::size_t_to_string(y));
+					if (!(x > video::VGA_WIDTH || x < 1 || y > video::VGA_HEIGHT || y < 1)) {
+						terminal::putentryat(' ', video::WHITE, x, y);
+					}
+				}
+				break;
+			default:
+				break;
+		}
+	}
+
+	// Define a function to handle size_terrupts from the PS/2 mouse
+	void size_terrupt_handler() {
+	    // Read the data from the PS/2 mouse
+	    const uint8_t data = read_data();
+
+	    // Process the data from the PS/2 mouse
+		process_data(data);
+
+	    // Acknowledge the interrupt
+	    IO::outb(COMMAND_PORT, 0x20);
+	}
+
+	void register_interrupt_handler() {
+	    // TODO Register the interrupt handler for the PS/2 mouse
+	}
+
+	// Define a function to clean up the PS/2 mouse driver
+	void cleanup() {
+	    // TODO Unregister the interrupt handler for the PS/2 mouse
+	}
+
+	// Define a function to initialize the PS/2 mouse driver
+	void ps2_mouse_init_driver() {
+	    init();
+	    register_interrupt_handler();
+	}
+
+	// Define a function to clean up the PS/2 mouse driver
+	void cleanup_driver() {
+	    cleanup();
+	}
+}
+
 void inputLoop() {
 	char ch = 0;
 	char keycode = 0;
-	int timer_count = keyboard::INPUT_DELAY;
+	size_t timer_count = keyboard::INPUT_DELAY;
 	terminal::input.buffer[0] = '\0';
 	while (true) {
+		using namespace terminal;
+		using namespace IO;
+		using namespace strings;
+		using namespace video;
+		using namespace keyboard;
 		asm volatile("nop"); // A little bit of delay
 		if (timer_count-- <= 0) {
-			keycode = keyboard::get_input_keycode();
+			keycode = get_input_keycode();
 			// Newline
-			if (keycode == keyboard::KEY_ENTER) {
-				terminal::print("\n");
+			if (keycode == KEY_ENTER) {
+				print("\n");
 
 				// Commands logic
-				if (strings::equals(terminal::input.buffer, "shutdown")) {
-					return; // Shut down the kernel
-				} else if (strings::equals(terminal::input.buffer, "help")) {
-					terminal::println("Available commands: ");
-					terminal::println("shutdown - Shut down the kernel.");
-					terminal::println("help - Display this help message.");
-					terminal::println("version - Display the version.");
-				} else if (strings::equals(terminal::input.buffer, "version")) {
-					terminal::printlnColor("denOS", video::DARK_GREY, video::WHITE);
-					terminal::println("");
-					terminal::print("Kernel version: ");
-					terminal::printlnColor(system::VERSION, video::DEFAULT_BG, video::LIGHT_GREEN);
-					terminal::println("Compiled using the C++ and asm cross-compiler for i686-elf.");
-					terminal::println("Type 'help' for more information.");
+				if (equals(input.buffer, "shutdown")) {
+					uint8_t shutdown_signal = 0xFE;
+					// asm volatile("outb %0, %1" :: "a"(shutdown_signal), "Nd"(system::ACPI_CONTROL_REGISTER));
+					outb(system::ACPI_CONTROL_REGISTER, shutdown_signal);
+					println("ACPI shutdown failed, halting the system");
+					return; // Halt the system
+				}
+				else if (equals(input.buffer, "help")) {
+					println("Available commands: ");
+					for (size_t i = 0; i < sizeof(console::HELP_TABLE) / sizeof(console::HELP_TABLE[0]); i++) {
+						console::help_entry entry = console::HELP_TABLE[i];
+						printColor(entry.command, DEFAULT_BG, LIGHT_BROWN);
+						print(" - ");
+						println(entry.description);
+					}
+				}
+				else if (equals(input.buffer, "version")) {
+					printlnColor("denOS", DARK_GREY, WHITE);
+					println("");
+					print("Kernel version: ");
+					printlnColor(system::VERSION, DEFAULT_BG, LIGHT_GREEN);
+					print("Codename: ");
+					printlnColor(system::CODENAME == nullptr ? "No codename" : system::CODENAME, DEFAULT_BG, LIGHT_BLUE);
+					print("Release date: ");
+					printlnColor(system::RELEASE_DATE, DEFAULT_BG, LIGHT_MAGENTA);
+					println("Compiled using the C++ and asm cross-compiler for i686-elf.");
+					println("Type 'help' for more information.");
+				}
+				else if (equals(input.buffer, "changelog")) {
+					println("Changelog:");
+					size_t len = sizeof(system::CHANGELOG) / sizeof(system::CHANGELOG[0]);
+					for (size_t i = 0; i < len; i++) {
+						system::changelog_entry entry = system::CHANGELOG[i];
+						printColor(entry.version, DEFAULT_BG, LIGHT_GREEN);
+						print(" - ");
+						printlnColor(entry.codename == nullptr ? "No codename" : entry.codename, DEFAULT_BG, LIGHT_BLUE);
+						print("Released at ");
+						printlnColor(entry.date, DEFAULT_BG, LIGHT_MAGENTA);
+						println("--------");
+						println(entry.changes);
+						println("");
+					}
+					printlnColor("Warning: the dates can be unprecise.", DEFAULT_BG, LIGHT_RED);
+					println("The most recent version displays last.");
+				}
+				else if (equals(input.buffer, "test")) {
+					print(toString(100));
 				}
 				// No valid command is entered
-				else if (!strings::equals(terminal::input.buffer, "")) {
-					terminal::print("Unknown command \"");
-					terminal::print(terminal::input.buffer);
-					terminal::println("\". Type 'help' for more information.");
+				else if (!equals(input.buffer, "")) {
+					print("Unknown command \"");
+					printColor(input.buffer, DEFAULT_BG, LIGHT_BROWN);
+					print("\". Type '");
+					printColor("help", DEFAULT_BG, LIGHT_BROWN);
+					println("' for more information.");
 				}
 
-				terminal::print("> ");
-				for (int i = 0; i < sizeof(terminal::input.buffer) / sizeof(terminal::input.buffer[0]); i++) {
-					terminal::input.buffer[i] = '\0';
+				// Command finished, erase the input and update the positions
+				print("> ");
+				for (size_t i = 0; i < sizeof(input.buffer) / sizeof(input.buffer[0]); i++) {
+					input.buffer[i] = '\0';
 				}
-				terminal::input.start.row = video::terminal_row;
-				terminal::input.start.col = video::terminal_column - 1;
-				terminal::input.end.row = video::terminal_row;
-				terminal::input.end.col = video::terminal_column;
+				input.start.row = terminal_row;
+				input.start.col = terminal_column - 1;
+				input.end.row = terminal_row;
+				input.end.col = terminal_column;
 			}
 			// Erase
-			else if (keycode == keyboard::KEY_BACKSPACE) {
-				if (terminal::input.end.col != terminal::input.start.col + 1) {
-					const size_t index = terminal::input.end.row * video::VGA_WIDTH + terminal::input.end.col - 1;
-					video::terminal_buffer[index] = video::vga_entry(' ', video::terminal_color);
-					video::terminal_column--;
-					terminal::input.end.col--;
-					terminal::input.buffer[strings::length(terminal::input.buffer) - 1] = '\0';
+			else if (keycode == KEY_BACKSPACE) {
+				if (input.end.col != input.start.col + 1) {
+					const size_t index = input.end.row * VGA_WIDTH + input.end.col - 1;
+					const size_t index_caret = input.end.row * VGA_WIDTH + input.end.col;
+					terminal_buffer[index] = vga_entry(' ', vga_entry_color(BLACK, WHITE));
+					terminal_buffer[index_caret] = vga_entry(' ', terminal_color);
+					terminal_column--;
+					input.end.col--;
+					input.buffer[length(input.buffer) - 1] = '\0';
 				}
 			}
 			// Type character
 			else if (keycode != 0) {
-				ch = keyboard::get_ascii_char(keycode);
-				if (terminal::input.start.col == 0 &&
-					terminal::input.start.row == 0 &&
-					terminal::input.end.col == 0 &&
-					terminal::input.end.row == 0
+				ch = get_ascii_char(keycode);
+				if (input.start.col == 0 &&
+					input.start.row == 0 &&
+					input.end.col == 0 &&
+					input.end.row == 0
 					) {
-					const terminal::pos pos = {video::terminal_row, video::terminal_column - 1};
-					terminal::input.start = pos;
-					const terminal::pos end = {video::terminal_row, video::terminal_column};
-					terminal::input.end = end;
+					input.start = {terminal_row, terminal_column - 1};
+					input.end = {terminal_row, terminal_column};
 					}
-				terminal::printChar(ch);
-				terminal::input.buffer[strings::length(terminal::input.buffer)] = ch;
-				terminal::input.buffer[strings::length(terminal::input.buffer) + 1] = '\0';
-				terminal::input.end.row = terminal::input.start.row;
-				terminal::input.end.col++;
+				printColor(ch, DEFAULT_BG, LIGHT_BROWN);
+				input.buffer[length(input.buffer)] = ch;
+				input.buffer[length(input.buffer) + 1] = '\0';
+				input.end.row = input.start.row;
+				input.end.col++;
 			}
-			timer_count = keyboard::INPUT_DELAY;
+			timer_count = INPUT_DELAY;
 		}
 	}
 }
@@ -796,21 +1065,42 @@ extern "C" void kernel_main(void) {
 	terminal::initialize();
 	constexpr video::vga_color bg = video::DARK_GREY;
 
-	terminal::printColor("denOS ", bg, video::WHITE);
-	terminal::printColor(system::VERSION, bg, video::LIGHT_GREEN);
-	terminal::printlnColor(" kernel", bg, video::WHITE);
-	terminal::println("");
+	const auto os = "denOS ";
+	const auto kernel = " kernel";
+
+	for (size_t i = 0; i < strings::length(os); i++) {
+		system::sleep(100000000);
+		terminal::printColor(os[i], bg, video::WHITE);
+	}
+
+	for (size_t i = 0; i < strings::length(system::VERSION); i++) {
+		system::sleep(100000000);
+		terminal::printColor(system::VERSION[i], bg, video::LIGHT_GREEN);
+	}
+
+	for (size_t i = 0; i < strings::length(kernel); i++) {
+		system::sleep(100000000);
+		char data[2];
+		data[0] = kernel[i];
+		data[1] = '\0';
+
+		terminal::printColor(data, bg, video::WHITE);
+	}
+	// mouse::ps2_mouse_init_driver();
+
+	// terminal::printColor("denOS ", bg, video::WHITE);
+	// terminal::printColor(system::VERSION, bg, video::LIGHT_GREEN);
+	// terminal::printlnColor(" kernel", bg, video::WHITE);
+	terminal::println("\n");
 	terminal::printColor("Features:", video::DEFAULT_BG, video::LIGHT_CYAN);
 	terminal::println(" text on the screen, newlines, colors, keyboard (!!!), commands");
 	terminal::println("Reset your computer to exit.");
 	terminal::println("");
 	terminal::printlnColor("WARNING: Doesn't work on x64.", video::DEFAULT_BG, video::LIGHT_RED);
+	// terminal::print("Testing number to string: ");
+	// terminal::println(strings::int_to_string(5));
 	terminal::println("");
 	terminal::print("> ");
-	terminal::print(strings::int_to_string(5));
-	// system::sleep(1000);
-	/* update_cursor(1, 4);
-	disable_cursor(); */
 	inputLoop();
 	terminal::println("System halted.");
 }
