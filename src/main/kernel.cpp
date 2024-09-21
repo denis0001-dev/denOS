@@ -292,49 +292,27 @@ namespace strings {
 		return substring(str, start, length(str));
 	}
 
-	string toString(size_t num) {
+	string reverse(const string str) {
+		const size_t length = strings::length(str);
+		const auto temp = new char[length];
+
+		for (size_t i = 0; i < length; i++) {
+			temp[i] = str[length - i - 1];
+		}
+		return temp;
+	}
+
+	string toString(int num) {
 		char buffer[10];
-		size_t i = 0;
+		int i = 0;
 
 		while (num > 0) {
-			switch (num % 10) {
-				case 1:
-					buffer[i++] = '1';
-                    break;
-                case 2:
-                	buffer[i++] = '2';
-                    break;
-                case 3:
-                	buffer[i++] = '3';
-                    break;
-                case 4:
-                	buffer[i++] = '4';
-                    break;
-                case 5:
-                	buffer[i++] = '5';
-                    break;
-                case 6:
-                	buffer[i++] = '6';
-                    break;
-                case 7:
-                	buffer[i++] = '7';
-                    break;
-                case 8:
-                	buffer[i++] = '8';
-                    break;
-                case 9:
-                	buffer[i++] = '9';
-                    break;
-                case 0:
-                	buffer[i++] = '0';
-                    break;
-				default:
-					buffer[i++] = '\1';
-			}
+			buffer[i] = num % 10 + '0';
 			num /= 10;
+			i++;
 		}
 		buffer[i] = '\0';
-		return buffer;
+		return reverse(buffer);
 	}
 
 	string toLowerCase(const string str) {
@@ -822,6 +800,12 @@ namespace system {
 			"19.09.2024",
 			"Fixed some bugs"
 		},
+		{
+			"0.7.6",
+			"Colorful Commander",
+			"21.09.2024",
+			"Started working on number to string conversion, fixed some bugs"
+		}
 	};
 
 	/* changelog_entry LATEST_RELEASE = {
