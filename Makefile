@@ -67,6 +67,7 @@ qemu: all
 boot:
 	echo "Compiling boot..."
 	sed -E 's/;.*$$//gm;t' < $(INDIR)/boot.s > $(OUTDIR)/boot_clean.s
+	sed -E 's/^\n|^(\t+)\n//gm;t' $(OUTDIR)/boot_clean.s
 	$(AS) $(OUTDIR)/boot_clean.s -o $(OUTDIR)/boot.o
 
 # Compile the high-level kernel using the C++ compiler.
