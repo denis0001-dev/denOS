@@ -1,8 +1,9 @@
 #
-# denOS kernel
-# Created by denis0001-dev on https://gitverse.ru/denis0001-dev/denOS
+# denOS makefile
+# Created by denis0001-dev on https://gitverse.ru/denis0001-dev/denOS/content/master/Makefile
 # Version 1.0
 # Compiling, linking, and building commands from https://wiki.osdev.org/Bare_Bones
+# DO NOT EDIT OR REMOVE THIS HEADER.
 #
 
 TARGET = i686-elf # OS target architecture

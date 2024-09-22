@@ -1,4 +1,12 @@
-// ReSharper disable once CppUnusedIncludeDirective
+/**
+ * denOS kernel
+ * Created by denis0001-dev on https://gitverse.ru/denis0001-dev/denOS/content/master/src/main/kernel.cpp
+ * Version 0.7.7
+ * Compiling, linking, and building commands from https://wiki.osdev.org/Bare_Bones
+ * DO NOT EDIT OR REMOVE THIS HEADER.
+ */
+
+// ReSharper disable CppUnusedIncludeDirective
 // ReSharper disable CppUnusedIncludeDirective
 // ReSharper disable CppStringLiteralToCharPointerConversion
 // ReSharper disable CppUseStructuredBinding
@@ -11,9 +19,9 @@
 #error "You are not using a cross-compiler, you will most certainly run into trouble"
 #endif
 
-/* This tutorial will only work for the 32-bit ix86 targets. */
+/* This kernel will only work for the 32-bit ix86 targets. */
 #if !defined(__i386__)
-#error "This tutorial needs to be compiled with a ix86-elf compiler"
+#error "This kernel needs to be compiled with a ix86-elf compiler"
 #endif
 
 typedef const char* string;
@@ -1043,7 +1051,9 @@ void inputLoop() {
 	}
 }
 
-// ENTRY POINT
+/**
+ *
+ */
 extern "C" void kernel_main(void) {
 	/* Initialize terminal interface */
 	terminal::initialize();

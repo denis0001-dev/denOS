@@ -1,6 +1,10 @@
-; denOS kernel
-; v1.0-prex100-alpha
-; Features: none
+;
+; denOS kernel bootstrap
+; Created by denis0001-dev on https://gitverse.ru/denis0001-dev/denOS/content/master/src/main/boot.s
+; Version 1.0
+; Compiling, linking, and building commands from https://wiki.osdev.org/Bare_Bones
+; DO NOT EDIT OR REMOVE THIS HEADER.
+;
 
 ; Declare constants for the multiboot header.
 .set ALIGN,    1<<0             ; align loaded modules on page boundaries
