@@ -747,6 +747,9 @@ namespace system {
 		string changes;
 	};
 
+	int ACPI_CONTROL_REGISTER = 0x400;
+	uint8_t ACPI_SHUTDOWN_SIGNAL = 0xFE;
+
 	constexpr changelog_entry CHANGELOG[] {
 		{
 			"0.1",
@@ -813,6 +816,12 @@ namespace system {
 			"Colorful Commander",
 			"21.09.2024",
 			"Started working on number to string conversion, fixed some bugs"
+		},
+		{
+			"0.7.8",
+			"Colorful Commander",
+			"22.09.2024",
+			"Fixed some bugs, restructured the code"
 		}
 	};
 
@@ -823,17 +832,87 @@ namespace system {
         CHANGELOG[LATEST_RELEASE_INDEX].changes
 	}; */
 
-	string VERSION = CHANGELOG[9].version;
-	string CODENAME = CHANGELOG[9].codename;
-	string RELEASE_DATE = CHANGELOG[9].date;
+	string VERSION = CHANGELOG[11].version;
+	string CODENAME = CHANGELOG[11].codename;
+	string RELEASE_DATE = CHANGELOG[11].date;
 
-	int ACPI_CONTROL_REGISTER = 0x400;
-	uint8_t ACPI_SHUTDOWN_SIGNAL = 0xFE;
+	enum exitCodes {
+		SUCCESS = 0,
+		CMD_NOT_FOUND = 1,
+	};
+
+	enum signals {
+		SHUTDOWN = 2,
+	};
 
 	void sleep(uint32_t timer_count) {
 		for (uint32_t i = 0; i < timer_count; i++) {
             asm volatile("nop");
         }
+	}
+
+	int processCommand(const string command) {
+		using namespace strings;
+		using namespace terminal;
+		using namespace video;
+		if (equals(command, "shutdown")) {
+			constexpr uint8_t shutdown_signal = 0xFE;
+			// asm volatile("outb %0, %1" :: "a"(shutdown_signal), "Nd"(system::ACPI_CONTROL_REGISTER));
+			IO::outb(ACPI_CONTROL_REGISTER, shutdown_signal);
+			println("ACPI shutdown failed, halting the system");
+			return SHUTDOWN; // Halt the system
+		}
+		else if (equals(input.buffer, "help")) {
+			println("Available commands: ");
+			for (size_t i = 0; i < sizeof(console::HELP_TABLE) / sizeof(console::HELP_TABLE[0]); i++) {
+				const console::help_entry entry = console::HELP_TABLE[i];
+				printColor(entry.command, DEFAULT_BG, LIGHT_BROWN);
+				print(" - ");
+				println(entry.description);
+			}
+		}
+		else if (equals(input.buffer, "version")) {
+			printlnColor("denOS", DARK_GREY, WHITE);
+			println("");
+			print("Kernel version: ");
+			printlnColor(VERSION, DEFAULT_BG, LIGHT_GREEN);
+			print("Codename: ");
+			printlnColor(CODENAME == nullptr ? "No codename" : CODENAME, DEFAULT_BG, LIGHT_BLUE);
+			print("Release date: ");
+			printlnColor(RELEASE_DATE, DEFAULT_BG, LIGHT_MAGENTA);
+			println("Compiled using the C++ and asm cross-compiler for i686-elf.");
+			println("Type 'help' for more information.");
+		}
+		else if (equals(input.buffer, "changelog")) {
+			println("Changelog:");
+			constexpr size_t len = sizeof(CHANGELOG) / sizeof(CHANGELOG[0]);
+			for (size_t i = 0; i < len; i++) {
+				const changelog_entry entry = CHANGELOG[i];
+				printColor(entry.version, DEFAULT_BG, LIGHT_GREEN);
+				print(" - ");
+				printlnColor(entry.codename == nullptr ? "No codename" : entry.codename, DEFAULT_BG, LIGHT_BLUE);
+				print("Released at ");
+				printlnColor(entry.date, DEFAULT_BG, LIGHT_MAGENTA);
+				println("--------");
+				println(entry.changes);
+				println("");
+			}
+			printlnColor("Warning: the dates can be unprecise.", DEFAULT_BG, LIGHT_RED);
+			println("The most recent version displays last.");
+		}
+		else if (equals(input.buffer, "test")) {
+			print(toString(100));
+		}
+		// No valid command is entered
+		else if (!equals(input.buffer, "")) {
+			print("Unknown command \"");
+			printColor(input.buffer, DEFAULT_BG, LIGHT_BROWN);
+			print("\". Type '");
+			printColor("help", DEFAULT_BG, LIGHT_BROWN);
+			println("' for more information.");
+			return CMD_NOT_FOUND;
+		}
+		return SUCCESS;
 	}
 }
 
@@ -931,6 +1010,19 @@ namespace mouse {
 	}
 }
 
+/**
+ * This function gets data from the keyboard in an interval,
+ * gets the keycode and processes it.
+ *   - If @code Enter@endcode was pressed, new line will be inserted, and
+ *     the command will be executed.
+ *   - If @code Backspace@endcode was pressed, the last character that the
+ *     user typed will be deleted, and the cursor position will decrease by 1.
+ *   - If any other key was pressed, the appropiate character will be displayed
+ *     on the screen and the cursor position will increase by 1. The maximun
+ *     amount of characters you can enter is determined by VGA_WIDTH.
+ *
+ * To make a delay, it uses the @code nop@endcode assembly instruction.
+ */
 void inputLoop() {
 	char ch = 0;
 	char keycode = 0;
@@ -950,7 +1042,7 @@ void inputLoop() {
 				print("\n");
 
 				// Commands logic
-				if (equals(input.buffer, "shutdown")) {
+				/* if (equals(input.buffer, "shutdown")) {
 					uint8_t shutdown_signal = 0xFE;
 					// asm volatile("outb %0, %1" :: "a"(shutdown_signal), "Nd"(system::ACPI_CONTROL_REGISTER));
 					outb(system::ACPI_CONTROL_REGISTER, shutdown_signal);
@@ -1005,6 +1097,13 @@ void inputLoop() {
 					print("\". Type '");
 					printColor("help", DEFAULT_BG, LIGHT_BROWN);
 					println("' for more information.");
+				} */
+				if (int code = system::processCommand(input.buffer); code == system::SHUTDOWN) {
+					return; // Halt the system
+				} else if (code == system::SUCCESS) {
+					println("\nCommand executed successfully.");
+				} else if (code != system::CMD_NOT_FOUND) {
+					print("Command failed.");
 				}
 
 				// Command finished, erase the input and update the positions
@@ -1052,7 +1151,67 @@ void inputLoop() {
 }
 
 /**
- *
+ * <b>Entry point</b>
+ * <p>
+ * This function has to be declared with <code>extern "C"</code>,
+ * so this function can be called from the <a href="https://gitverse.ru/denis0001-dev/denOS/content/master/src/main/boot.s">boot.s</a> bootstrap file.
+ * Otherwise, this function will compile with a different name, and the linker will
+ * not be able to call this function.
+ * </p>
+ * <b>
+ * Note: the code snippets are not colored and the whitespaces are not preserved,
+ * so the things you see here are different from the actual OS.
+ * </b>
+ * <p>
+ * The system will "type" this text: @code denOS 0.0.0 kernel@endcode
+ * <br/>
+ * Then, it will display some features that this system has.
+ * Here's the example output you will see:
+ * @code
+ * denOS 0.0.0 kernel
+ * [space]
+ * Features: text on the screen, newlines, colors, keyboard (!!!), commands
+ * Reset your computer to exit.
+ * [space]
+ * WARNING: Doesn't work on x64.
+ * [space]
+ * >
+ * @endcode
+ * You will see a white box after the > character, which is the cursor.
+ * <br/>
+ * Currently, you can't type capital letters.
+ * <br/>
+ * Now, you can type some commands.
+ * <br/>
+ * For example, type @code help@endcode to see a list of available commands.
+ * The help command will look like this:
+ * @code
+ * > help
+ * help - print this help message
+ * shutdown - halt the system
+ * version - print the version and build information
+ * ...
+ * @endcode
+ * <b>Note: The messages shown in this code snippet may differ from the actual result.</b>
+ * <br/>
+ * You can look at the changelog for the list of changes recently made:
+ * @code
+ * > changelog
+ * Changelog:
+ * 0.0.0 - Example Codename
+ * Released at 01.01.2000
+ * --------
+ * Example changes list, the changes weren't made because this is just an example :)
+ * [space]
+ * 0.1.0 - Example Codename 2
+ * Released at 02.01.2000
+ * --------
+ * Example changes list, the changes weren't made because this is just a 2nd example :)
+ * ...
+ * @endcode
+ * You can look for more commands in the help table.
+ * </p>
+ * @see system:HELP_TABLE
  */
 extern "C" void kernel_main(void) {
 	/* Initialize terminal interface */
