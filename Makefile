@@ -6,8 +6,10 @@
 # DO NOT EDIT OR REMOVE THIS HEADER.
 #
 
-TARGET = i686-elf # OS target architecture
-PREFIX = ~/opt/cross # Cross-compiler root directory
+# OS target architecture
+TARGET = i686-elf
+# Cross-compiler root directory
+PREFIX = ~/opt/cross
 
 # Tools locations
 CC = $(PREFIX)/bin/$(TARGET)-g++ # C++ compiler
@@ -67,7 +69,6 @@ qemu: all
 boot:
 	echo "Compiling boot..."
 	sed -E 's/;.*$$//gm;t' < $(INDIR)/boot.s > $(OUTDIR)/boot_clean.s
-	sed -E 's/^\n|^(\t+)\n//gm;t' $(OUTDIR)/boot_clean.s
 	$(AS) $(OUTDIR)/boot_clean.s -o $(OUTDIR)/boot.o
 
 # Compile the high-level kernel using the C++ compiler.

@@ -302,7 +302,7 @@ namespace strings {
 
 	string reverse(const string str) {
 		const size_t length = strings::length(str);
-		const auto temp = new char[length];
+		char temp[length];
 
 		for (size_t i = 0; i < length; i++) {
 			temp[i] = str[length - i - 1];
@@ -822,6 +822,12 @@ namespace system {
 			"Colorful Commander",
 			"22.09.2024",
 			"Fixed some bugs, restructured the code"
+		},
+		{
+			"0.7.10",
+			"Colorful Commander",
+			"22.09.2024",
+			"Fixed some bugs"
 		}
 	};
 
@@ -832,9 +838,9 @@ namespace system {
         CHANGELOG[LATEST_RELEASE_INDEX].changes
 	}; */
 
-	string VERSION = CHANGELOG[11].version;
-	string CODENAME = CHANGELOG[11].codename;
-	string RELEASE_DATE = CHANGELOG[11].date;
+	string VERSION = CHANGELOG[12].version;
+	string CODENAME = CHANGELOG[12].codename;
+	string RELEASE_DATE = CHANGELOG[12].date;
 
 	enum exitCodes {
 		SUCCESS = 0,
