@@ -1,44 +1,59 @@
-/**
+/** @file
  * denOS kernel
  * Created by denis0001-dev on https://gitverse.ru/denis0001-dev/denOS/content/master/src/main/kernel.cpp
- * Version 0.7.7
+ * Version 0.7.10
  * Compiling, linking, and building commands from https://wiki.osdev.org/Bare_Bones
  * DO NOT EDIT OR REMOVE THIS HEADER.
  */
 
 // ReSharper disable CppUnusedIncludeDirective
-// ReSharper disable CppUnusedIncludeDirective
-// ReSharper disable CppStringLiteralToCharPointerConversion
-// ReSharper disable CppUseStructuredBinding
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-/* Check if the compiler thinks you are targeting the wrong operating system. */
+// Check if the compiler thinks you are targeting the wrong operating system.
 #if defined(__linux__)
 #error "You are not using a cross-compiler, you will most certainly run into trouble"
 #endif
 
-/* This kernel will only work for the 32-bit ix86 targets. */
+// This kernel will only work for the 32-bit ix86 targets.
 #if !defined(__i386__)
 #error "This kernel needs to be compiled with a ix86-elf compiler"
 #endif
 
-typedef const char* string;
+typedef const char* string; ///< A convenience char pointer @code string@endcode alias.
 
+/// @brief I\\O functions that use inline assembly to interact with devices.
 namespace IO {
+	/**
+	 * @brief Read input from a port, such as keyboard (<code>0x60</code>).
+	 * @param port A short unsigned (not negative) integer port number.
+	 * @return The @code unsigned char@endcode read from the port.
+	 */
 	uint8_t inb(uint16_t port) {
 		uint8_t ret;
 		asm volatile("inb %1, %0" : "=a"(ret) : "d"(port));
 		return ret;
 	}
 
+	/**
+	 * @brief Send data to a port.
+	 * @param port A short unsigned (not negative) integer port number.
+	 * @param data The @code unsigned char@endcode to send to the port.
+	 */
 	void outb(uint16_t port, uint8_t data) {
 		asm volatile("outb %0, %1" : "=a"(data) : "d"(port));
 	}
 }
 
+/// @brief Functions for string manipulation.
 namespace strings {
+	/**
+	 * @brief Returns the count of characters present in a string
+	 * before the null terminator (<code>\0</code>).
+	 * @param str The string (char pointer).
+	 * @return The length in form of an @code unsigned long@endcode.
+	 */
 	size_t length(const string str) {
 		size_t len = 0;
 		while (str[len]) len++;
@@ -170,8 +185,7 @@ namespace strings {
 			}
 			return chars;
 		}
-	}; *
-
+	}; */
 
 	/* struct string {
 		char* data = new char[1];
@@ -250,6 +264,18 @@ namespace strings {
 		}
 	}; */
 
+	/**
+	 * @brief Concatenates two strings.
+	 *
+	 * It first calculates the length of the final string
+	 * @code (length of first + length of second + 1)@endcode.
+	 * Then it creates a new string with this length and copies the characters from the first string.
+	 * After this, the characters from the second string are copied.
+	 * Finally, it adds @code \0@endcode to the end of the string.
+	 * @param first The source string.
+	 * @param second The string to add to the end of the source string.
+	 * @return The first string + the second string.
+	 */
 	string concat(const string first, const string second) {
 		const size_t len1 = length(first);
 		const size_t len2 = length(second);
@@ -268,6 +294,16 @@ namespace strings {
 		return new_data;
 	}
 
+	/**
+	 * @brief Concatenates the first string with the character.
+	 *
+	 * It uses the first concat function to concatenate.
+	 * Before calling this function, it creates a new string with the
+	 * character and the null terminator.
+	 * @param first The source string.
+	 * @param second The character to add to the end of the source string.
+	 * @return The result of @code concat(first, {second, '\0'})@endcode.
+	 */
 	string concat(const string first, const char second) {
 		char data[2];
 		data[0] = second;
@@ -275,6 +311,19 @@ namespace strings {
 		return concat(first, data);
 	}
 
+	/**
+	 * @brief Check if two strings match, without counting the characters
+	 * after the null terminator.
+	 *
+	 * If the length of the first string doesn't match the length of the
+	 * second string, returns @code false@endcode.
+	 * Otherwise, it compares each character of the strings
+	 * at the same position. If any character doesn't match, returns @code false@endcode.
+	 * If all characters match, returns @code true@endcode.
+	 * @param first The first string.
+	 * @param second The second string.
+	 * @return If the strings match, @code true@endcode, otherwise @code false@endcode.
+	 */
 	bool equals(const string first, const string second) {
 		const size_t len1 = length(first);
 		if (len1 != length(second)) return false;
@@ -284,6 +333,17 @@ namespace strings {
 		return true;
 	}
 
+	/**
+	 * @brief Get the substring out of a string between the start & end positions.
+	 *
+	 * It iterates over the source string starting from the start position,
+	 * and adds the character to the final string.
+	 * When it reaches the end position, it adds @code \0@endcode to the final string.
+	 * @param str The source string.
+	 * @param start The start position in the source string.
+	 * @param end The end position in the source string.
+	 * @return The characters between the start and end positions.
+	 */
 	string substring(const string str, const size_t start, const size_t end) {
 		const size_t len = end - start;
 		char new_data[len + 1];
@@ -296,10 +356,21 @@ namespace strings {
 		return new_data;
 	}
 
+	/**
+	 * @brief Get the substring out of a string from the start to the end of the string.
+	 * @param str The source string.
+	 * @param start The start position in the source string.
+	 * @return Result of @code substring(str, start, length(str)@endcode.
+	 */
 	string substring(const string str, const size_t start) {
 		return substring(str, start, length(str));
 	}
 
+	/**
+	 * @brief Reverses the characters of a string.
+	 * @param str The source string.
+	 * @return The characters of the source string in reverse order.
+	 */
 	string reverse(const string str) {
 		const size_t length = strings::length(str);
 		char temp[length];
@@ -310,6 +381,18 @@ namespace strings {
 		return temp;
 	}
 
+	/**
+     * @brief Converts an integer to a string.
+     * Negative values are not supported.
+     *
+     * This function creates a buffer of 10 characters to hold the digits.
+     * It gets the last digit of the number, converts it to a character and
+     * puts it into the buffer.
+     * After this, it adds a null terminator and reverses the string,
+     * because the digits are added to the string in reverse order.
+     * @param num The integer to convert.
+     * @return The integer as a string.
+     */
 	string toString(int num) {
 		char buffer[10];
 		int i = 0;
@@ -323,6 +406,11 @@ namespace strings {
 		return reverse(buffer);
 	}
 
+	/**
+	 * @brief Lowercases each character of the given string if possible.
+	 * @param str The string.
+	 * @return The string with all the characters converted to lowercase.
+	 */
 	string toLowerCase(const string str) {
 		const size_t len = length(str);
         char new_data[len + 1];
@@ -341,7 +429,9 @@ namespace strings {
 	}
 }
 
+/// @brief Contains functions for managing the video output.
 namespace video {
+	/// @brief VGA text mode colors.
 	enum vga_color {
 		BLACK = 0,
 		BLUE = 1,
@@ -361,30 +451,49 @@ namespace video {
 		WHITE = 15,
 	};
 
-	static constexpr size_t VGA_WIDTH = 80;
-	static constexpr size_t VGA_HEIGHT = 25;
+	static constexpr size_t VGA_WIDTH = 80; ///< The VGA screen width.
+	static constexpr size_t VGA_HEIGHT = 25; ///< The VGA screen height.
 
-	static vga_color DEFAULT_BG = BLACK;
-	static vga_color DEFAULT_FG = LIGHT_GREY;
+	static vga_color DEFAULT_BG = BLACK; ///< The default background color.
+	static vga_color DEFAULT_FG = LIGHT_GREY; ///< The default foreground (text) color.
 
-	size_t terminal_row;
-	size_t terminal_column;
-	uint8_t terminal_color;
-	uint16_t* terminal_buffer;
+	size_t terminal_row; ///< The current row to which the next character will be placed.
+	size_t terminal_column; ///< The current column to which the next character will be placed.
+	uint8_t terminal_color; ///< The current terminal color in which the next character will be printed.
+	uint16_t* terminal_buffer; ///< The buffer containing the terminal characters.
 
+	/**
+	 * @brief Combines two colors together into a single value.
+	 * @param fg The foreground (text) color.
+	 * @param bg The background color.
+	 * @return The @code char@endcode with the foreground & background color combined into one value.
+	 */
 	static uint8_t vga_entry_color(const vga_color fg, const vga_color bg) {
 		return fg | bg << 4;
 	}
 
+	/**
+	 * @brief Makes a VGA entry that con be put into @link terminal_buffer@endlink
+	 * to make it appear on the screen.
+	 * @param uc The character to display.
+	 * @param color The color got from @link vga_entry_color(fg, bg)@endlink.
+	 * @return The character and the color combined into a single value.
+	 */
 	static uint16_t vga_entry(const uint16_t uc, const uint8_t color) {
 		return static_cast<uint16_t>(uc) | static_cast<uint16_t>(color) << 8;
 	}
 
+	/// @brief A structure holding the data from the parameters of @link vga_entry()@endlink.
 	struct VGAEntry {
 		uint16_t uc;
 		uint8_t color;
 	};
 
+	/**
+	 * @brief Get the parameters of @link vga_entry()@endlink from its result.
+	 * @param result The result of the @link vga_entry()@endlink function.
+	 * @return The uc and color values in the @link VGAEntry@endlink structure.
+	 */
 	VGAEntry vgaEntryFromResult(const uint16_t result) {
 		// Получаем младший байт результата для цвета
 		VGAEntry entry = {};
@@ -397,7 +506,13 @@ namespace video {
 	}
 }
 
+/// @brief Functions for managing the terminal.
 namespace terminal {
+	/**
+	 * @brief Clears the characters on the screen.
+	 *
+	 * It replaces all characters in @link video::terminal_buffer@endlink with spaces.
+	 */
 	void clear() {
 		video::terminal_row = 0;
 		video::terminal_column = 0;
@@ -409,6 +524,14 @@ namespace terminal {
 		}
 	}
 
+	/**
+	 * @brief Initializes the terminal by setting the variables to the default values.
+	 *
+	 * The values cannot be initialized right at declaration, because the kernel needs to
+	 * boot first.
+	 * So, when the kernel is ready, it calls this function to initialize the terminal and
+	 * get it ready to work.
+	 */
 	void initialize() {
 		video::terminal_row = 0;
 		video::terminal_column = 0;
@@ -417,11 +540,30 @@ namespace terminal {
 		clear();
 	}
 
+	/**
+	 * @brief Displays a character in the specified color at the specified position.
+	 *
+	 * First, it calculates the position in the @link video::terminal_buffer@endlink.
+	 * Then, it sets the result of @link video::vga_entry(c, color)@endlink to the
+	 * calculated position.
+	 * @param c The character to display.
+	 * @param color The color in which the character should be displayed.
+	 * @param x The x position on the screen.
+	 * @param y The y position on the screen.
+	 */
 	void putentryat(const char c, const uint8_t color, const size_t x, const size_t y) {
 		const size_t index = y * video::VGA_WIDTH + x;
 		video::terminal_buffer[index] = video::vga_entry(c, color);
 	}
 
+	/**
+	 * @brief Scrolls the terminal by the specified amount of lines.
+	 *
+	 * It discards the number of lines specified from the top of the screen,
+	 * and re-displays all the characters.
+	 * @bug It erases the top line after scrolling.
+	 * @param lines The number of lines to scroll.
+	 */
 	void scroll(const size_t lines) {
 		const size_t new_row = (video::terminal_row + lines) % video::VGA_HEIGHT;
 
@@ -440,6 +582,14 @@ namespace terminal {
 		}
 	}
 
+	/**
+	 * @brief Prints the character after the last character printed in the default terminal color.
+	 * The terminal will automatically scroll by 1 line if there's not enough space to display
+	 * the character.
+	 * <br/>
+	 * If the character is @code \n@endcode, the terminal will go on a new line.
+	 * @param c The character to print.
+	 */
 	void printChar(const char c) {
 		if (c != '\n') {
 			putentryat(c, video::terminal_color, video::terminal_column, video::terminal_row);
@@ -461,15 +611,40 @@ namespace terminal {
 		putentryat(' ', vga_entry_color(video::BLACK, video::WHITE), video::terminal_column, video::terminal_row);
 	}
 
+	/**
+	 * @brief Displays the specified string on the screen.
+	 *
+	 * It calls @link printChar(c)@endlink for each character in the string.
+	 * @param data The string to display.
+	 */
 	void print(const string data) {
 		for (size_t i = 0; i < strings::length(data); i++) printChar(data[i]);
 	}
 
+	/**
+	 * @brief Display the specified string in the specified colors on the screen.
+	 *
+	 * It sets the @link video::terminal_color@endlink to the specified color,
+	 * calls @link print@endlink, and sets the color back to the default.
+	 * @param data The string to display.
+	 * @param bg The background color.
+	 * @param fg The foreground (text) color.
+	 */
 	void printColor(const string data, const video::vga_color bg, const video::vga_color fg) {
 		video::terminal_color = vga_entry_color(fg, bg);
 		print(data);
 		video::terminal_color = vga_entry_color(video::DEFAULT_FG, video::DEFAULT_BG);
 	}
+
+	/**
+	 * @brief Display the specified character in the specified colors on the screen.
+	 *
+	 * It constructs a string out of the character, and calls
+	 * @link printColor(string, video::vga_color, video::vga_color)@endlink.
+	 * @param data The character to display.
+	 * @param bg The background color.
+	 * @param fg The foreground (text) color.
+	 */
 	void printColor(const char data, const video::vga_color bg, const video::vga_color fg) {
 		char str[2];
 		str[0] = data;
@@ -477,57 +652,60 @@ namespace terminal {
 		printColor(str, bg, fg);
 	}
 
+	/**
+	 * @brief Displays a string on the screen, and goes to a new line after the string.
+	 *
+	 * It just prints the string, and prints @code \n@endcode.
+	 * @param data The string to display.
+	 */
 	void println(const string data) {
 		print(data);
 		print("\n");
 	}
 
+	/**
+	 * @brief Displays a string on the screen in the specified colors, and goes to a new line
+	 * after the string.
+	 *
+	 * It just prints the string in the specified colors, and prints @code\n@endcode.
+	 * @param data The string to display
+	 * @param bg The background color.
+	 * @param fg The foreground (text) color.
+	 */
 	void printlnColor(const string data, const video::vga_color bg, const video::vga_color fg) {
 		printColor(data, bg, fg);
 		print("\n");
 	}
 
+	/// @brief X, Y coordinates.
 	struct pos {
-		size_t row;
-		size_t col;
+		size_t row; ///< Y coordinate
+		size_t col; ///< X coordinate
 	};
 
+	/// @brief The current input info.
 	struct current_input {
-		size_t size;
-		pos start;
-		pos end;
-		char buffer[video::VGA_WIDTH];
+		size_t size; ///< The count of characters in the input
+		pos start; ///< The starting position
+		pos end; ///< The ending position
+		char buffer[video::VGA_WIDTH - 2]; ///< The input buffer
 	};
 
+	/// The default values for an empty input.
 	constexpr current_input default_input = {0, {0, 0}, {0, 0}, ""};
 
-	current_input input = default_input;
-
-	void move_cursor(const size_t x, const size_t y) {
-	    // The cursor position is stored in the first two bytes of the video memory.
-	    // The first byte is the high nibble and the second byte is the low nibble.
-	    // The high nibble is the page number and the low nibble is the row number.
-	    // The page number is the y coordinate divided by 80 and the row number is the x coordinate.
-
-	    // Calculate the high nibble (page number)
-	    const uint8_t high_nibble = y / 80;
-
-	    // Calculate the low nibble (row number)
-	    const uint8_t low_nibble = x;
-
-	    // Write the high nibble to the first byte of the video memory
-	    IO::outb(0x3D4, high_nibble);
-
-	    // Write the low nibble to the second byte of the video memory
-	    IO::outb(0x3D5, low_nibble);
-	}
+	current_input input = default_input; ///< The current input.
 }
 
+/// @brief Variables used for the console.
 namespace console {
+	/// @brief An entry for the help command.
 	struct help_entry {
-		string command;
-		string description;
+		string command; ///< The command.
+		string description; ///< The command description.
 	};
+
+	/// @brief Helpful description for each command.
 	constexpr help_entry HELP_TABLE[] = {
 		{"shutdown", "Shut down the system"},
 		{"help", "Display this help message"},
@@ -536,9 +714,20 @@ namespace console {
 	};
 }
 
+/// @brief Functions & variables for handling the keyboard.
 namespace keyboard {
-	constexpr int PORT = 0x60;
+	constexpr int PORT = 0x60; ///< The keyboard I\\O port.
+	/**
+	 * @brief The count of times to repeat the @code nop@endcode instruction.
+	 *
+	 * This is needed because the processor is very fast, so if you press a key,
+	 * the entire screen will be filled with the character matching the key
+	 * thousands of times. To prevent this, the @code nop@endcode instruction is
+	 * used to delay reading the keyboard.
+	 */
 	constexpr int INPUT_DELAY = 500000000;
+
+	/// @brief The scancodes for each key that exists on the keyboard.
 	enum keys {
 		KEY_A = 0x1E,
 		KEY_B = 0x30,
@@ -619,6 +808,8 @@ namespace keyboard {
 		KEY_TAB = 0x0F,
 		KEY_UP = 0x48,
 	};
+
+	/// @brief The special characters used to represent some keys.
 	enum key_chars {
 		// Arrow keys
 		UP = '\101',
@@ -642,6 +833,11 @@ namespace keyboard {
 		PRINT_SCREEN = '\70'
 	};
 
+	/**
+	 * @brief Gets the current pressed key's code.
+	 * @return The keycode read from the keyboard,
+	 * or 0 if no key was pressed at the moment of calling this function.
+	 */
 	char get_input_keycode() {
 		char ch = 0;
 		while((ch = IO::inb(PORT)) != 0) { // NOLINT(*-narrowing-conversions)
@@ -650,6 +846,12 @@ namespace keyboard {
 		return ch;
 	}
 
+	/**
+	 * @brief Convert a keycode to a character that can be displayed on
+	 * the screen.
+	 * @param keycode The keycode got from @link get_input_keycode@endlink.
+	 * @return The character representing the key.
+	 */
 	char get_ascii_char(const char keycode) {
 		switch(keycode) {
 			// Letters
@@ -739,18 +941,35 @@ namespace keyboard {
 	}
 }
 
-namespace system {
-	struct changelog_entry {
+/*! @namespace System
+ * Contains system-related methods and information about the release.
+ */
+namespace System {
+	/*! @struct ChangelogEntry
+	 * A convenience structure for the changelog versions.
+	 */
+	struct ChangelogEntry {
+		/// The version in format @code [MAJOR].[MINOR].[PATCH]@endcode.
 		string version;
+		/// The codename of the version. Use @code nullptr@endcode if there's none.
 		string codename;
+		/// The date of the release in format @code [YYYY-MM-DD]@endcode.
 		string date;
+		/// The list of changes for this version.
 		string changes;
 	};
 
+	/// The register for sending <a href="https://wiki.osdev.org/ACPI">ACPI</a> commands to the computer.
 	int ACPI_CONTROL_REGISTER = 0x400;
+	/// The <a href="https://wiki.osdev.org/ACPI">ACPI</a> power off signal.
 	uint8_t ACPI_SHUTDOWN_SIGNAL = 0xFE;
 
-	constexpr changelog_entry CHANGELOG[] {
+	/*!
+	 * The history of versions of this OS starting from the oldest.
+	 * <br/>
+	 * @link System::ChangelogEntry@endlink is used to contain each version.
+	 */
+	constexpr ChangelogEntry CHANGELOG[] {
 		{
 			"0.1",
 			nullptr,
@@ -828,6 +1047,12 @@ namespace system {
 			"Colorful Commander",
 			"22.09.2024",
 			"Fixed some bugs"
+		},
+		{
+			"0.7.11",
+			"Colorful Commander",
+			"26.09.2024",
+			"Documented the code"
 		}
 	};
 
@@ -838,25 +1063,38 @@ namespace system {
         CHANGELOG[LATEST_RELEASE_INDEX].changes
 	}; */
 
-	string VERSION = CHANGELOG[12].version;
-	string CODENAME = CHANGELOG[12].codename;
-	string RELEASE_DATE = CHANGELOG[12].date;
+	string VERSION = CHANGELOG[12].version; ///< The system version.
+	string CODENAME = CHANGELOG[12].codename; ///< The system codename. Will be @code nullptr@endcode if none.
+	string RELEASE_DATE = CHANGELOG[12].date; ///< @link ChangelogEntry.date@endlink
 
+	/// Exit codes for a command.
 	enum exitCodes {
-		SUCCESS = 0,
-		CMD_NOT_FOUND = 1,
+		SUCCESS = 0, ///< Command succeeded.
+		CMD_NOT_FOUND = 1, ///< Command wasn't found.
+		NO_COMMAND = 3, ///< No command was entered, do nothing.
 	};
 
+	/// Special exit codes that indicate a system command such as shutdown.
 	enum signals {
-		SHUTDOWN = 2,
+		SHUTDOWN = 2, ///< Special code for halting the system.
 	};
 
+	/**
+	 * Executes the assembly @code nop@endcode instruction for the given amount of times,
+	 * delaying execution.
+	 * <b>Warning: the time of the delay cannot be predicted, it depends on your computer's speed.</b>
+	 */
 	void sleep(uint32_t timer_count) {
 		for (uint32_t i = 0; i < timer_count; i++) {
             asm volatile("nop");
         }
 	}
 
+	/**
+	 * A function that will process the command string and execute the given command.
+	 * @param command The command to execute, or @code""@endcode to do nothing.
+	 * @return An exit code from @link exitCodes@endlink or @link signals@endlink.
+	 */
 	int processCommand(const string command) {
 		using namespace strings;
 		using namespace terminal;
@@ -893,7 +1131,7 @@ namespace system {
 			println("Changelog:");
 			constexpr size_t len = sizeof(CHANGELOG) / sizeof(CHANGELOG[0]);
 			for (size_t i = 0; i < len; i++) {
-				const changelog_entry entry = CHANGELOG[i];
+				const ChangelogEntry entry = CHANGELOG[i];
 				printColor(entry.version, DEFAULT_BG, LIGHT_GREEN);
 				print(" - ");
 				printlnColor(entry.codename == nullptr ? "No codename" : entry.codename, DEFAULT_BG, LIGHT_BLUE);
@@ -909,6 +1147,9 @@ namespace system {
 		else if (equals(input.buffer, "test")) {
 			print(toString(100));
 		}
+		else if (equals(input.buffer, "")) {
+			return NO_COMMAND;
+		}
 		// No valid command is entered
 		else if (!equals(input.buffer, "")) {
 			print("Unknown command \"");
@@ -922,7 +1163,9 @@ namespace system {
 	}
 }
 
-// TODO mouse driver
+/**
+ * Not implemented yet.
+ */
 namespace mouse {
 	// Define the interrupt number for the PS/2 mouse
 	constexpr int IRQ = 12;
@@ -1048,68 +1291,12 @@ void inputLoop() {
 				print("\n");
 
 				// Commands logic
-				/* if (equals(input.buffer, "shutdown")) {
-					uint8_t shutdown_signal = 0xFE;
-					// asm volatile("outb %0, %1" :: "a"(shutdown_signal), "Nd"(system::ACPI_CONTROL_REGISTER));
-					outb(system::ACPI_CONTROL_REGISTER, shutdown_signal);
-					println("ACPI shutdown failed, halting the system");
+				if (int code = System::processCommand(input.buffer); code == System::SHUTDOWN) {
 					return; // Halt the system
-				}
-				else if (equals(input.buffer, "help")) {
-					println("Available commands: ");
-					for (size_t i = 0; i < sizeof(console::HELP_TABLE) / sizeof(console::HELP_TABLE[0]); i++) {
-						console::help_entry entry = console::HELP_TABLE[i];
-						printColor(entry.command, DEFAULT_BG, LIGHT_BROWN);
-						print(" - ");
-						println(entry.description);
-					}
-				}
-				else if (equals(input.buffer, "version")) {
-					printlnColor("denOS", DARK_GREY, WHITE);
-					println("");
-					print("Kernel version: ");
-					printlnColor(system::VERSION, DEFAULT_BG, LIGHT_GREEN);
-					print("Codename: ");
-					printlnColor(system::CODENAME == nullptr ? "No codename" : system::CODENAME, DEFAULT_BG, LIGHT_BLUE);
-					print("Release date: ");
-					printlnColor(system::RELEASE_DATE, DEFAULT_BG, LIGHT_MAGENTA);
-					println("Compiled using the C++ and asm cross-compiler for i686-elf.");
-					println("Type 'help' for more information.");
-				}
-				else if (equals(input.buffer, "changelog")) {
-					println("Changelog:");
-					size_t len = sizeof(system::CHANGELOG) / sizeof(system::CHANGELOG[0]);
-					for (size_t i = 0; i < len; i++) {
-						system::changelog_entry entry = system::CHANGELOG[i];
-						printColor(entry.version, DEFAULT_BG, LIGHT_GREEN);
-						print(" - ");
-						printlnColor(entry.codename == nullptr ? "No codename" : entry.codename, DEFAULT_BG, LIGHT_BLUE);
-						print("Released at ");
-						printlnColor(entry.date, DEFAULT_BG, LIGHT_MAGENTA);
-						println("--------");
-						println(entry.changes);
-						println("");
-					}
-					printlnColor("Warning: the dates can be unprecise.", DEFAULT_BG, LIGHT_RED);
-					println("The most recent version displays last.");
-				}
-				else if (equals(input.buffer, "test")) {
-					print(toString(100));
-				}
-				// No valid command is entered
-				else if (!equals(input.buffer, "")) {
-					print("Unknown command \"");
-					printColor(input.buffer, DEFAULT_BG, LIGHT_BROWN);
-					print("\". Type '");
-					printColor("help", DEFAULT_BG, LIGHT_BROWN);
-					println("' for more information.");
-				} */
-				if (int code = system::processCommand(input.buffer); code == system::SHUTDOWN) {
-					return; // Halt the system
-				} else if (code == system::SUCCESS) {
+				} else if (code == System::SUCCESS) {
 					println("\nCommand executed successfully.");
-				} else if (code != system::CMD_NOT_FOUND) {
-					print("Command failed.");
+				} else if (code != System::CMD_NOT_FOUND && code != System::NO_COMMAND) {
+					println("\nCommand failed.");
 				}
 
 				// Command finished, erase the input and update the positions
@@ -1137,19 +1324,21 @@ void inputLoop() {
 			// Type character
 			else if (keycode != 0) {
 				ch = get_ascii_char(keycode);
-				if (input.start.col == 0 &&
-					input.start.row == 0 &&
-					input.end.col == 0 &&
-					input.end.row == 0
-					) {
-					input.start = {terminal_row, terminal_column - 1};
-					input.end = {terminal_row, terminal_column};
-					}
-				printColor(ch, DEFAULT_BG, LIGHT_BROWN);
-				input.buffer[length(input.buffer)] = ch;
-				input.buffer[length(input.buffer) + 1] = '\0';
-				input.end.row = input.start.row;
-				input.end.col++;
+				if (ch != 0) {
+					if (input.start.col == 0 &&
+						input.start.row == 0 &&
+						input.end.col == 0 &&
+						input.end.row == 0
+						) {
+						input.start = {terminal_row, terminal_column - 1};
+						input.end = {terminal_row, terminal_column};
+						}
+					printColor(ch, DEFAULT_BG, LIGHT_BROWN);
+					input.buffer[length(input.buffer)] = ch;
+					input.buffer[length(input.buffer) + 1] = '\0';
+					input.end.row = input.start.row;
+					input.end.col++;
+				}
 			}
 			timer_count = INPUT_DELAY;
 		}
@@ -1220,25 +1409,25 @@ void inputLoop() {
  * @see system:HELP_TABLE
  */
 extern "C" void kernel_main(void) {
-	/* Initialize terminal interface */
 	terminal::initialize();
 	constexpr video::vga_color bg = video::DARK_GREY;
 
+	// Animate "typing" "denOS x.x.x kernel"
 	const auto os = "denOS ";
 	const auto kernel = " kernel";
 
 	for (size_t i = 0; i < strings::length(os); i++) {
-		system::sleep(100000000);
+		System::sleep(100000000);
 		terminal::printColor(os[i], bg, video::WHITE);
 	}
 
-	for (size_t i = 0; i < strings::length(system::VERSION); i++) {
-		system::sleep(100000000);
-		terminal::printColor(system::VERSION[i], bg, video::LIGHT_GREEN);
+	for (size_t i = 0; i < strings::length(System::VERSION); i++) {
+		System::sleep(100000000);
+		terminal::printColor(System::VERSION[i], bg, video::LIGHT_GREEN);
 	}
 
 	for (size_t i = 0; i < strings::length(kernel); i++) {
-		system::sleep(100000000);
+		System::sleep(100000000);
 		char data[2];
 		data[0] = kernel[i];
 		data[1] = '\0';
@@ -1247,19 +1436,14 @@ extern "C" void kernel_main(void) {
 	}
 	// mouse::ps2_mouse_init_driver();
 
-	// terminal::printColor("denOS ", bg, video::WHITE);
-	// terminal::printColor(system::VERSION, bg, video::LIGHT_GREEN);
-	// terminal::printlnColor(" kernel", bg, video::WHITE);
 	terminal::println("\n");
 	terminal::printColor("Features:", video::DEFAULT_BG, video::LIGHT_CYAN);
 	terminal::println(" text on the screen, newlines, colors, keyboard (!!!), commands");
 	terminal::println("Reset your computer to exit.");
 	terminal::println("");
 	terminal::printlnColor("WARNING: Doesn't work on x64.", video::DEFAULT_BG, video::LIGHT_RED);
-	// terminal::print("Testing number to string: ");
-	// terminal::println(strings::int_to_string(5));
 	terminal::println("");
 	terminal::print("> ");
 	inputLoop();
-	terminal::println("System halted.");
+	terminal::println("System halted."); // After this the system will be halted
 }
