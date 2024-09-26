@@ -1,7 +1,7 @@
 /** @file
  * denOS kernel
  * Created by denis0001-dev on https://gitverse.ru/denis0001-dev/denOS/content/master/src/main/kernel.cpp
- * Version 0.7.10
+ * Version 0.7.12
  * Compiling, linking, and building commands from https://wiki.osdev.org/Bare_Bones
  * DO NOT EDIT OR REMOVE THIS HEADER.
  */
@@ -1053,6 +1053,12 @@ namespace System {
 			"Colorful Commander",
 			"26.09.2024",
 			"Documented the code"
+		},
+		{
+			"0.7.12",
+			"Colorful Commander",
+			"26.09.2024",
+			"Readme"
 		}
 	};
 
