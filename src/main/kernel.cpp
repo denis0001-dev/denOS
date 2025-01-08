@@ -7,6 +7,7 @@
  */
 
 // ReSharper disable CppUnusedIncludeDirective
+#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -333,6 +334,18 @@ namespace strings {
 		return true;
 	}
 
+	bool startsWith(const string str, const string prefix) {
+		if (length(str) < length(prefix)) return false;
+		size_t matched = 0;
+
+		for (size_t i = 0; i <= length(str); i++) {
+			if (matched == length(prefix)) return true;
+			if (str[i] != prefix[i]) return false;
+            matched++;
+		}
+		return false;
+	}
+
 	/**
 	 * @brief Get the substring out of a string between the start & end positions.
 	 *
@@ -381,29 +394,34 @@ namespace strings {
 		return temp;
 	}
 
-	/**
-     * @brief Converts an integer to a string.
-     * Negative values are not supported.
-     *
-     * This function creates a buffer of 10 characters to hold the digits.
-     * It gets the last digit of the number, converts it to a character and
-     * puts it into the buffer.
-     * After this, it adds a null terminator and reverses the string,
-     * because the digits are added to the string in reverse order.
-     * @param num The integer to convert.
-     * @return The integer as a string.
-     */
-	string toString(int num) {
-		char buffer[10];
-		int i = 0;
+	int numDigits(const int32_t x) { // NOLINT(*-no-recursion)
+		if (x == INT32_MIN) return 10 + 1;
+		if (x < 0) return numDigits(-x) + 1;
 
-		while (num > 0) {
-			buffer[i] = num % 10 + '0';
-			num /= 10;
-			i++;
+		if (x >= 10000) {
+			if (x >= 10000000) {
+				if (x >= 100000000) {
+					if (x >= 1000000000)
+						return 10;
+					return 9;
+				}
+				return 8;
+			}
+			if (x >= 100000) {
+				if (x >= 1000000)
+					return 7;
+				return 6;
+			}
+			return 5;
 		}
-		buffer[i] = '\0';
-		return reverse(buffer);
+		if (x >= 100) {
+			if (x >= 1000)
+				return 4;
+			return 3;
+		}
+		if (x >= 10)
+			return 2;
+		return 1;
 	}
 
 	/**
@@ -426,6 +444,48 @@ namespace strings {
 
         new_data[len] = '\0';
         return new_data;
+	}
+
+	char* itoa(int value, char* str, const int radix) {
+		char* ptr;
+		// Check for supported base.
+		if (radix < 2 || radix > 36 ){
+			*str = '\0';
+			return str;
+		}
+		char *rc = ptr = str;
+		// Set '-' for negative decimals.
+		if (value < 0 && radix == 10 ) {
+			*ptr++ = '-';
+		}
+		// Remember where the numbers start.
+		char *low = ptr;
+		// The actual conversion.
+		while (value) {
+			// Modulo is negative for negative value. This trick makes abs() unnecessary.
+			*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz"[35 + value % radix];
+			value /= radix;
+		}
+		// Terminating the string.
+		*ptr-- = '\0';
+		// Invert the numbers.
+		while (low < ptr) {
+			const char tmp = *low;
+			*low++ = *ptr;
+			*ptr-- = tmp;
+		}
+		return rc;
+	}
+
+	/**
+	 * @brief Converts an integer to a string.
+	 * @param num The integer to convert.
+	 * @return The integer as a string.
+	 */
+	char* toString(const int num) {
+		char str[numDigits(num)];
+		itoa(num, str, 10);
+		return str;
 	}
 }
 
@@ -710,7 +770,8 @@ namespace console {
 		{"shutdown", "Shut down the system"},
 		{"help", "Display this help message"},
 		{"version", "Display version information"},
-		{"changelog", "Display changes recently made"}
+		{"changelog", "Display changes recently made"},
+		{"repeat, echo", "Repeat the same text that was typed after this command's name"}
 	};
 }
 
@@ -725,7 +786,13 @@ namespace keyboard {
 	 * thousands of times. To prevent this, the @code nop@endcode instruction is
 	 * used to delay reading the keyboard.
 	 */
-	constexpr int INPUT_DELAY = 500000000;
+	constexpr int INPUT_DELAY =
+		#ifndef DEBUG
+			500000000
+	    #else
+			125000000
+		#endif
+	;
 
 	/// @brief The scancodes for each key that exists on the keyboard.
 	enum keys {
@@ -838,7 +905,7 @@ namespace keyboard {
 	 * @return The keycode read from the keyboard,
 	 * or 0 if no key was pressed at the moment of calling this function.
 	 */
-	char get_input_keycode() {
+	char getInputKeycode() {
 		char ch = 0;
 		while((ch = IO::inb(PORT)) != 0) { // NOLINT(*-narrowing-conversions)
 			if (ch > 0) return ch;
@@ -849,10 +916,10 @@ namespace keyboard {
 	/**
 	 * @brief Convert a keycode to a character that can be displayed on
 	 * the screen.
-	 * @param keycode The keycode got from @link get_input_keycode@endlink.
+	 * @param keycode The keycode got from @link getInputKeycode@endlink.
 	 * @return The character representing the key.
 	 */
-	char get_ascii_char(const char keycode) {
+	char keycodeToReadableChar(const char keycode) {
 		switch(keycode) {
 			// Letters
 			case KEY_A: return 'a';
@@ -1096,6 +1163,100 @@ namespace System {
         }
 	}
 
+	enum ports {
+		/* keyboard interface IO port: data and control
+	READ:   status port
+	WRITE:  control register */
+		KEYBOARD_INTERFACE = 0x64,
+		KEYBOARD_IO = 0x60, /* keyboard IO port */
+		KEYBOARD_RESET = 0xFE /* reset CPU command */
+	};
+
+	// Define the CPUID instruction
+	#define CPUID(func, eax, ebx, ecx, edx) \
+		asm volatile("cpuid" : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx) : "0" (func))
+
+	struct CPUID {
+		uint64_t frequency;
+		char* vendor;
+	};
+
+	// Function to get the CPU frequency
+	CPUID getCPUID() {
+		uint32_t eax, ebx, ecx, edx;
+
+		// Get the CPU vendor string
+		CPUID(0, eax, ebx, ecx, edx);
+		char vendor[13];
+		*reinterpret_cast<uint32_t *>(vendor) = ebx;
+		*reinterpret_cast<uint32_t *>(vendor + 4) = edx;
+		*reinterpret_cast<uint32_t *>(vendor + 8) = ecx;
+		vendor[12] = '\0';
+
+		// Check if the CPU supports the RDTSC instruction
+		if (eax >= 1) {
+			CPUID(1, eax, ebx, ecx, edx);
+			if (edx & 1 << 4) {
+				// Get the TSC frequency
+				uint64_t tsc_start, tsc_end;
+				uint32_t tsc_start_low, tsc_start_high, tsc_end_low, tsc_end_high;
+
+				// Read the TSC before and after a short delay
+				asm volatile("rdtsc" : "=a" (tsc_start_low), "=d" (tsc_start_high));
+				// Do something that takes some time
+				for (volatile int i = 0; i < 1000000; i++) {
+					asm volatile("nop");
+				}
+				asm volatile("rdtsc" : "=a" (tsc_end_low), "=d" (tsc_end_high));
+
+				// Combine the TSC values
+				tsc_start = static_cast<uint64_t>(tsc_start_high) << 32 | tsc_start_low;
+				tsc_end = static_cast<uint64_t>(tsc_end_high) << 32 | tsc_end_low;
+
+				// Calculate the TSC frequency
+				uint64_t tsc_frequency = tsc_end - tsc_start;
+
+				// Return the TSC frequency
+				return CPUID { tsc_frequency, vendor };
+			}
+		}
+
+		// Return 0 if the TSC frequency cannot be determined
+		return CPUID { 0, vendor };
+	}
+
+	void disableInterrupts() {
+		asm volatile("cli");
+	}
+
+	[[noreturn]] void halt() {
+		loop:
+			asm volatile("hlt"); /* if that didn't work, halt the CPU */
+		goto loop; /* if a NMI is received, halt again */
+	}
+
+	/* keyboard interface bits */
+	#define KBRD_BIT_KDATA 0 /* keyboard data is in buffer (output buffer is empty) (bit 0) */
+	#define KBRD_BIT_UDATA 1 /* user data is in buffer (command buffer is empty) (bit 1) */
+
+	#define bit(n) (1<<(n)) /* Set bit n to 1 */
+
+	/* Check if bit n in flags is set */
+	#define check_flag(flags, n) ((flags) & bit(n))
+
+	void reboot() {
+		// Send the reset command to the keyboard controller
+		IO::outb(KEYBOARD_INTERFACE, KEYBOARD_RESET);
+
+		// Wait for a while to ensure the command is processed
+		for (int i = 0; i < 100000; i++) {
+			asm volatile("nop");
+		}
+
+		// Reset the CPU
+		asm volatile("jmp 0xFFFFFFF0");
+	}
+
 	/**
 	 * A function that will process the command string and execute the given command.
 	 * @param command The command to execute, or @code""@endcode to do nothing.
@@ -1105,23 +1266,25 @@ namespace System {
 		using namespace strings;
 		using namespace terminal;
 		using namespace video;
+
+		const bool startsWithRepeat = startsWith(command, "repeat");
+		const bool startsWithEcho = startsWith(command, "echo");
+
 		if (equals(command, "shutdown")) {
-			constexpr uint8_t shutdown_signal = 0xFE;
-			// asm volatile("outb %0, %1" :: "a"(shutdown_signal), "Nd"(system::ACPI_CONTROL_REGISTER));
-			IO::outb(ACPI_CONTROL_REGISTER, shutdown_signal);
+			IO::outb(ACPI_CONTROL_REGISTER, ACPI_SHUTDOWN_SIGNAL);
 			println("ACPI shutdown failed, halting the system");
 			return SHUTDOWN; // Halt the system
 		}
-		else if (equals(input.buffer, "help")) {
+		else if (equals(command, "help")) {
 			println("Available commands: ");
 			for (size_t i = 0; i < sizeof(console::HELP_TABLE) / sizeof(console::HELP_TABLE[0]); i++) {
-				const console::help_entry entry = console::HELP_TABLE[i];
-				printColor(entry.command, DEFAULT_BG, LIGHT_BROWN);
+				const auto [command, description] = console::HELP_TABLE[i];
+				printColor(command, DEFAULT_BG, LIGHT_BROWN);
 				print(" - ");
-				println(entry.description);
+				println(description);
 			}
 		}
-		else if (equals(input.buffer, "version")) {
+		else if (equals(command, "version")) {
 			printlnColor("denOS", DARK_GREY, WHITE);
 			println("");
 			print("Kernel version: ");
@@ -1130,34 +1293,65 @@ namespace System {
 			printlnColor(CODENAME == nullptr ? "No codename" : CODENAME, DEFAULT_BG, LIGHT_BLUE);
 			print("Release date: ");
 			printlnColor(RELEASE_DATE, DEFAULT_BG, LIGHT_MAGENTA);
+			print("Build: ");
+			#ifdef DEBUG
+				printColor("Debug", DEFAULT_BG, MAGENTA);
+			#else
+				printColor("Release", DEFAULT_BG, MAGENTA);
+			#endif
 			println("Compiled using the C++ and asm cross-compiler for i686-elf.");
 			println("Type 'help' for more information.");
 		}
-		else if (equals(input.buffer, "changelog")) {
+		else if (equals(command, "changelog")) {
 			println("Changelog:");
 			constexpr size_t len = sizeof(CHANGELOG) / sizeof(CHANGELOG[0]);
 			for (size_t i = 0; i < len; i++) {
-				const ChangelogEntry entry = CHANGELOG[i];
-				printColor(entry.version, DEFAULT_BG, LIGHT_GREEN);
+				const auto [version, codename, date, changes] = CHANGELOG[i];
+				printColor(version, DEFAULT_BG, LIGHT_GREEN);
 				print(" - ");
-				printlnColor(entry.codename == nullptr ? "No codename" : entry.codename, DEFAULT_BG, LIGHT_BLUE);
+				printlnColor(codename == nullptr ? "No codename" : codename, DEFAULT_BG, LIGHT_BLUE);
 				print("Released at ");
-				printlnColor(entry.date, DEFAULT_BG, LIGHT_MAGENTA);
+				printlnColor(date, DEFAULT_BG, LIGHT_MAGENTA);
 				println("--------");
-				println(entry.changes);
+				println(changes);
 				println("");
 			}
 			printlnColor("Warning: the dates can be unprecise.", DEFAULT_BG, LIGHT_RED);
 			println("The most recent version displays last.");
 		}
-		else if (equals(input.buffer, "test")) {
-			print(toString(100));
+		else if (startsWithRepeat || startsWithEcho) {
+			size_t start = 0;
+			if (startsWithRepeat) {
+				start = 7;
+			} else {
+				start = 5;
+			}
+
+			char inp[80];
+			for (int i = start; i < 78; i++) {
+				if (command[i] == '\0') {
+					break;
+				}
+				inp[i - start] = command[i];
+			}
+			println(inp);
 		}
-		else if (equals(input.buffer, "")) {
+		else if (equals(command, "reboot")) {
+			reboot();
+		}
+		else if (equals(command, "cpuid")) {
+			const auto cpuid = getCPUID();
+			print("Frequency: ");
+			char* freqString = toString(cpuid.frequency);
+			println(freqString);
+			print("Vendor: ");
+			println(cpuid.vendor);
+		}
+		else if (equals(command, "")) {
 			return NO_COMMAND;
 		}
 		// No valid command is entered
-		else if (!equals(input.buffer, "")) {
+		else if (!equals(command, "")) {
 			print("Unknown command \"");
 			printColor(input.buffer, DEFAULT_BG, LIGHT_BROWN);
 			print("\". Type '");
@@ -1278,6 +1472,8 @@ namespace mouse {
  *
  * To make a delay, it uses the @code nop@endcode assembly instruction.
  */
+// ReSharper disable CppDFAConstantConditions
+// ReSharper disable CppDFAUnreachableCode
 void inputLoop() {
 	char ch = 0;
 	char keycode = 0;
@@ -1291,7 +1487,7 @@ void inputLoop() {
 		using namespace keyboard;
 		asm volatile("nop"); // A little bit of delay
 		if (timer_count-- <= 0) {
-			keycode = get_input_keycode();
+			keycode = getInputKeycode();
 			// Newline
 			if (keycode == KEY_ENTER) {
 				print("\n");
@@ -1329,7 +1525,7 @@ void inputLoop() {
 			}
 			// Type character
 			else if (keycode != 0) {
-				ch = get_ascii_char(keycode);
+				ch = keycodeToReadableChar(keycode);
 				if (ch != 0) {
 					if (input.start.col == 0 &&
 						input.start.row == 0 &&
@@ -1421,7 +1617,7 @@ extern "C" void kernel_main(void) {
 	// Animate "typing" "denOS x.x.x kernel"
 	const auto os = "denOS ";
 	const auto kernel = " kernel";
-
+	#ifndef DEBUG
 	for (size_t i = 0; i < strings::length(os); i++) {
 		System::sleep(100000000);
 		terminal::printColor(os[i], bg, video::WHITE);
@@ -1440,6 +1636,11 @@ extern "C" void kernel_main(void) {
 
 		terminal::printColor(data, bg, video::WHITE);
 	}
+	#else
+	terminal::printColor(os, bg, video::WHITE);
+	terminal::printColor(System::VERSION, bg, video::LIGHT_GREEN);
+	terminal::printColor(kernel, bg, video::WHITE);
+	#endif
 	// mouse::ps2_mouse_init_driver();
 
 	terminal::println("\n");

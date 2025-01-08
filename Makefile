@@ -21,13 +21,14 @@ ifeq (${DEBUG_BUILD}, true)
 	# because it will complicate debugging by removing some variables.
 	# But this method reduces the performance of the kernel.
 	OPT = 0
+	EXTRAPARAMS_CC = -g -DDEBUG=true
 else
 	# For normal builds, the optimization is enabled, because
 	# the kernel should be as fast as possible.
 	OPT = 2
 endif
 
-EXTRAPARAMS_CC = -ffreestanding -O$(OPT) -Wall -Wextra -fno-exceptions -fno-rtti -g
+EXTRAPARAMS_CC += -ffreestanding -O$(OPT) -Wall -Wextra -fno-exceptions -fno-rtti
 
 # Source
 INDIR = $(shell realpath .)/src/main
