@@ -63,7 +63,7 @@ all: clean setup boot kernel link check iso clean_tmp_files
 
 # Build the OS, launch it in QEMU with debugging support.
 qemu: all
-	qemu-system-i386 -cdrom $(OUTDIR)/denOS.iso -s
+	qemu-system-i386 -cdrom $(OUTDIR)/denOS.iso -s -m 1G
 
 # Compile the bootstrap assembly, needed to properly initialize
 # the processor, and launch the high-level kernel in C++.

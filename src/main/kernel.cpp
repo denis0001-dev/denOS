@@ -14,12 +14,12 @@
 
 // Check if the compiler thinks you are targeting the wrong operating system.
 #if defined(__linux__)
-#error "You are not using a cross-compiler, you will most certainly run into trouble"
+#error You are not using a cross-compiler, you will most certainly run into trouble
 #endif
 
 // This kernel will only work for the 32-bit ix86 targets.
 #if !defined(__i386__)
-#error "This kernel needs to be compiled with a ix86-elf compiler"
+#error This kernel needs to be compiled with a ix86-elf compiler
 #endif
 
 typedef const char* string; ///< A convenience char pointer @code string@endcode alias.
@@ -1129,13 +1129,6 @@ namespace System {
 		}
 	};
 
-	/* changelog_entry LATEST_RELEASE = {
-		CHANGELOG[LATEST_RELEASE_INDEX].version,
-		CHANGELOG[LATEST_RELEASE_INDEX].codename,
-		CHANGELOG[LATEST_RELEASE_INDEX].date,
-        CHANGELOG[LATEST_RELEASE_INDEX].changes
-	}; */
-
 	string VERSION = CHANGELOG[12].version; ///< The system version.
 	string CODENAME = CHANGELOG[12].codename; ///< The system codename. Will be @code nullptr@endcode if none.
 	string RELEASE_DATE = CHANGELOG[12].date; ///< @link ChangelogEntry.date@endlink
@@ -1225,6 +1218,30 @@ namespace System {
 		return CPUID { 0, vendor };
 	}
 
+	void getScreenDimensions(int& width, int& height) {
+		/*unsigned int eax, ebx, ecx, edx;*/
+
+		/*// Use the Video Electronics Assistants (VESA) BIOS Extensions (VBE) to get the screen dimensions
+		// The VBE function 0x00 to get the VBE controller information returns the screen width in AX and height in CX
+		asm volatile ("mov $0x4F00, %%eax\n"
+					  "mov $0x00, %%ebx\n"
+					  "int $0x10\n"
+					  "mov %%ax, %0\n"
+					  "mov %%cx, %1"
+					  : "=r" (width), "=r" (height)
+					  : "a" (eax), "b" (ebx)
+					  : "ecx", "edx");*/
+	}
+
+	void sleepMs(int ms) {
+		const auto [frequency, vendor] = getCPUID();
+		uint64_t cycles_per_ms = frequency / 100 * ms;
+
+		for (uint64_t i = 0; i < cycles_per_ms; i++) {
+			asm volatile("nop");
+		}
+	}
+
 	void disableInterrupts() {
 		asm volatile("cli");
 	}
@@ -1295,9 +1312,9 @@ namespace System {
 			printlnColor(RELEASE_DATE, DEFAULT_BG, LIGHT_MAGENTA);
 			print("Build: ");
 			#ifdef DEBUG
-				printColor("Debug", DEFAULT_BG, MAGENTA);
+			printColor("Debug", DEFAULT_BG, MAGENTA);
 			#else
-				printColor("Release", DEFAULT_BG, MAGENTA);
+			printColor("Release", DEFAULT_BG, MAGENTA);
 			#endif
 			println("Compiled using the C++ and asm cross-compiler for i686-elf.");
 			println("Type 'help' for more information.");
@@ -1340,12 +1357,69 @@ namespace System {
 			reboot();
 		}
 		else if (equals(command, "cpuid")) {
-			const auto cpuid = getCPUID();
-			print("Frequency: ");
-			char* freqString = toString(cpuid.frequency);
-			println(freqString);
-			print("Vendor: ");
-			println(cpuid.vendor);
+			uint32_t eax, ebx, ecx, edx;
+
+			// Get the CPU vendor string
+			CPUID(0, eax, ebx, ecx, edx);
+			char vendor[13];
+			*reinterpret_cast<uint32_t *>(vendor) = ebx;
+			*reinterpret_cast<uint32_t *>(vendor + 4) = edx;
+			*reinterpret_cast<uint32_t *>(vendor + 8) = ecx;
+			vendor[12] = '\0';
+
+			// Check if the CPU supports the RDTSC instruction
+			if (eax >= 1) {
+				CPUID(1, eax, ebx, ecx, edx);
+				if (edx & 1 << 4) {
+					// Get the TSC frequency
+					uint64_t tsc_start, tsc_end;
+					uint32_t tsc_start_low, tsc_start_high, tsc_end_low, tsc_end_high;
+
+					// Read the TSC before and after a short delay
+					asm volatile("rdtsc" : "=a" (tsc_start_low), "=d" (tsc_start_high));
+					// Do something that takes some time
+					for (volatile int i = 0; i < 1000000; i++) {
+						asm volatile("nop");
+					}
+					asm volatile("rdtsc" : "=a" (tsc_end_low), "=d" (tsc_end_high));
+
+					// Combine the TSC values
+					tsc_start = static_cast<uint64_t>(tsc_start_high) << 32 | tsc_start_low;
+					tsc_end = static_cast<uint64_t>(tsc_end_high) << 32 | tsc_end_low;
+
+					// Calculate the TSC frequency
+					uint64_t tsc_frequency = tsc_end - tsc_start;
+
+					// Return the TSC frequency
+					print("Frequency: ");
+					char* freqString = toString(tsc_frequency);
+					println(freqString);
+					print("Vendor: ");
+					println(vendor);
+					println("");
+					if (equals(vendor, "GenuineIntel")) {
+						println("Conclusion:");
+						println("Your processor IS THE BEST ONE EVER EXISTED!!!");
+					}
+				}
+			}
+			// Return 0 if the TSC frequency cannot be determined
+		}
+		else if (equals(command, "sleep")) {
+			println("1...");
+			sleepMs(1000);
+			println("2...");
+			sleepMs(1000);
+			println("3...");
+			sleepMs(1000);
+			println("That's a 3 second delay. I know the frequency, but it'll turn to null if i say it :(");
+		}
+		else if (equals(command, "video")) {
+			int width, height;
+			getScreenDimensions(width, height);
+			print(toString(width));
+			print("x");
+			println(toString(height));
 		}
 		else if (equals(command, "")) {
 			return NO_COMMAND;
@@ -1360,102 +1434,6 @@ namespace System {
 			return CMD_NOT_FOUND;
 		}
 		return SUCCESS;
-	}
-}
-
-/**
- * Not implemented yet.
- */
-namespace mouse {
-	// Define the interrupt number for the PS/2 mouse
-	constexpr int IRQ = 12;
-
-	// Define the data port and command port for the PS/2 mouse
-	constexpr int DATA_PORT = 0x60;
-	constexpr int COMMAND_PORT = 0x64;
-
-	// Define a structure to hold the state of the PS/2 mouse
-	struct mouse_state {
-	    uint8_t data;
-	    uint8_t command;
-	};
-
-	// Define a function to read data from the PS/2 mouse
-	uint8_t read_data() {
-	    // Read the data from the PS/2 mouse
-	    const uint8_t data = IO::inb(DATA_PORT);
-	    return data;
-	}
-
-	// Define a function to write data to the PS/2 mouse
-	void write_data(const uint8_t data) {
-	    // Write the data to the PS/2 mouse
-	    IO::outb(DATA_PORT, data);
-	}
-
-	// Define a function to initialize the PS/2 mouse
-	void init() {
-	    // Write the command to enable data transfer to the PS/2 mouse
-	    write_data(0x20);
-	}
-
-	// Define a function to process the data from the PS/2 mouse
-	void process_data(const uint8_t data) {
-		static mouse_state state;
-
-		switch (data) {
-			case 0xFE: // Mouse button pressed NOLINT(*-branch-clone)
-				break;
-			case 0xFF: // Mouse button released
-				break;
-			case 0xF0: // Data packet
-				state.data = data;
-				// Process the movement data from the mouse
-				if (state.data & 0x80) {
-					const size_t x = (state.data & 0x0F) * 8;
-					const size_t y = (state.data & 0x70) >> 4;
-					// Prsize_t the movement information
-					// terminal::prsize_tln(strings::size_t_to_string(x) + ", " + strings::size_t_to_string(y));
-					if (!(x > video::VGA_WIDTH || x < 1 || y > video::VGA_HEIGHT || y < 1)) {
-						terminal::putentryat(' ', video::WHITE, x, y);
-					}
-				}
-				break;
-			default:
-				break;
-		}
-	}
-
-	// Define a function to handle size_terrupts from the PS/2 mouse
-	void size_terrupt_handler() {
-	    // Read the data from the PS/2 mouse
-	    const uint8_t data = read_data();
-
-	    // Process the data from the PS/2 mouse
-		process_data(data);
-
-	    // Acknowledge the interrupt
-	    IO::outb(COMMAND_PORT, 0x20);
-	}
-
-	void register_interrupt_handler() {
-	    // TODO Register the interrupt handler for the PS/2 mouse
-	}
-
-	// Define a function to clean up the PS/2 mouse driver
-	void cleanup() {
-	    // TODO Unregister the interrupt handler for the PS/2 mouse
-	}
-
-	// Define a function to initialize the PS/2 mouse driver
-	void ps2_mouse_init_driver() {
-	    init();
-	    register_interrupt_handler();
-	}
-
-	// Define a function to clean up the PS/2 mouse driver
-	void cleanup_driver() {
-	    cleanup();
 	}
 }
 
@@ -1641,7 +1619,6 @@ extern "C" void kernel_main(void) {
 	terminal::printColor(System::VERSION, bg, video::LIGHT_GREEN);
 	terminal::printColor(kernel, bg, video::WHITE);
 	#endif
-	// mouse::ps2_mouse_init_driver();
 
 	terminal::println("\n");
 	terminal::printColor("Features:", video::DEFAULT_BG, video::LIGHT_CYAN);

@@ -6,15 +6,12 @@
 ; DO NOT EDIT OR REMOVE THIS HEADER.
 ;
 
-
-
 ; Declare constants for the multiboot header.
 .set ALIGN,    1<<0             ; align loaded modules on page boundaries
 .set MEMINFO,  1<<1             ; provide memory map
 .set FLAGS,    ALIGN | MEMINFO  ; this is the Multiboot 'flag' field
 .set MAGIC,    0x1BADB002       ; 'magic number' lets bootloader find the header
 .set CHECKSUM, -(MAGIC + FLAGS) ; checksum of above, to prove we are multiboot
-
 
 ; Declare a multiboot header that marks the program as a kernel. These are magic
 ; values that are documented in the multiboot standard. The bootloader will
@@ -26,7 +23,6 @@
 .long MAGIC
 .long FLAGS
 .long CHECKSUM
-
 
 ; The multiboot standard does not define the value of the stack pointer register
 ; (esp) and it is up to the kernel to provide a stack. This allocates room for a
@@ -47,12 +43,10 @@ stack_top:
 ; The linker script specifies _start as the entry point to the kernel and the
 ; bootloader will jump to this position once the kernel has been loaded. It
 ; doesn't make sense to return from this function as the bootloader is gone.
-
 .section .text
 .global _start
 .type _start, @function
 _start:
-
 	; The bootloader has loaded us into 32-bit protected mode on a x86
 	; machine. Interrupts are disabled. Paging is disabled. The processor
 	; state is as defined in the multiboot standard. The kernel has full
